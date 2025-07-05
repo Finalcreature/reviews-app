@@ -1,0 +1,116 @@
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const { Pool } = require("pg");
+const { v4: uuidv4 } = require("uuid");
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// --- Database Connection ---
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// Check database connection
+pool.connect((err, client, release) => {
+  if (err) {
+    return console.error("Error acquiring client", err.stack);
+  }
+  console.log("Successfully connected to PostgreSQL database!");
+  client.release();
+});
+
+// --- Middleware ---
+app.use(cors()); // Enable Cross-Origin Resource Sharing for all routes
+app.use(express.json()); // Middleware to parse JSON request bodies
+
+// --- API Routes ---
+
+// GET /api/reviews - Fetch all reviews
+app.get("/api/reviews", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM reviews ORDER BY created_at DESC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching reviews:", err);
+    res.status(500).json({ error: "Failed to fetch reviews" });
+  }
+});
+
+// POST /api/reviews - Create a new review
+app.post("/api/reviews", async (req, res) => {
+  try {
+    const {
+      title,
+      game_name,
+      review_text,
+      rating,
+      positive_points,
+      negative_points,
+      tags,
+    } = req.body;
+
+    // Basic validation
+    if (!title || !game_name || !review_text || rating === undefined) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const newReview = {
+      id: uuidv4(),
+      title,
+      game_name,
+      review_text,
+      rating,
+      positive_points: positive_points || [],
+      negative_points: negative_points || [],
+      tags: tags || [],
+    };
+
+    const query = `
+      INSERT INTO reviews (id, title, game_name, review_text, rating, positive_points, negative_points, tags)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *;
+    `;
+    const values = [
+      newReview.id,
+      newReview.title,
+      newReview.game_name,
+      newReview.review_text,
+      newReview.rating,
+      newReview.positive_points,
+      newReview.negative_points,
+      newReview.tags,
+    ];
+
+    const result = await pool.query(query, values);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error creating review:", err);
+    res.status(500).json({ error: "Failed to create review" });
+  }
+});
+
+// DELETE /api/reviews/:id - Delete a review
+app.delete("/api/reviews/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query("DELETE FROM reviews WHERE id = $1", [id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Review not found" });
+    }
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("Error deleting review:", err);
+    res.status(500).json({ error: "Failed to delete review" });
+  }
+});
+
+// --- Start Server ---
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});

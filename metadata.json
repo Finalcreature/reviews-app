@@ -1,0 +1,5 @@
+{
+  "name": "JSON Game Review Formatter",
+  "description": "An application that takes a JSON object representing a game review and displays it as a formatted, expandable card. Reviews are saved locally for persistence.",
+  "requestFramePermissions": []
+}
