@@ -104,10 +104,11 @@ const App: React.FC = () => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const titleMatch = review.title.toLowerCase().includes(query);
+    const gameNameMatch = review.game_name.toLowerCase().includes(query);
     const tagMatch = review.tags?.some((tag) =>
       tag.toLowerCase().includes(query)
     );
-    return titleMatch || tagMatch;
+    return titleMatch || gameNameMatch || tagMatch;
   });
 
   return (
@@ -150,11 +151,11 @@ const App: React.FC = () => {
                     </span>
                     <input
                       type="search"
-                      placeholder="Filter by title or tag..."
+                      placeholder="Filter by title, game name, or tag..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full sm:w-64 bg-slate-800 border-2 border-slate-600 rounded-lg pl-10 pr-4 py-2 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors"
-                      aria-label="Filter reviews by title or tag"
+                      aria-label="Filter reviews by title, game name, or tag"
                     />
                   </div>
                 </div>
