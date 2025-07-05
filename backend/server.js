@@ -110,6 +110,28 @@ app.delete("/api/reviews/:id", async (req, res) => {
   }
 });
 
+// PATCH /api/reviews/:id/tags - Update tags for a review
+app.patch("/api/reviews/:id/tags", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tags } = req.body;
+    if (!Array.isArray(tags)) {
+      return res.status(400).json({ error: "Tags must be an array" });
+    }
+    const result = await pool.query(
+      "UPDATE reviews SET tags = $1 WHERE id = $2 RETURNING *;",
+      [tags, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Review not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error updating tags:", err);
+    res.status(500).json({ error: "Failed to update tags" });
+  }
+});
+
 // --- Start Server ---
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

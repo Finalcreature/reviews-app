@@ -1,3 +1,25 @@
+/**
+ * [Backend] Updates the tags of a review by its ID.
+ * @param id - The ID of the review to update.
+ * @param tags - The new tags array.
+ * @returns A promise that resolves to the updated review.
+ */
+export const updateReviewTags = async (
+  id: string,
+  tags: string[]
+): Promise<Review> => {
+  const response = await fetch(`${API_BASE_URL}/api/reviews/${id}/tags`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ tags }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to update review tags on server");
+  }
+  return response.json();
+};
 // The updated services/api.ts file
 import { Review, NewReviewData } from "../types";
 

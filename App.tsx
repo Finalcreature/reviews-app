@@ -81,6 +81,25 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Update review tags handler
+  const updateReviewTags = useCallback(
+    async (id: string, newTags: string[]) => {
+      try {
+        const updated = await api.updateReviewTags(id, newTags);
+        setReviews((prevReviews: Review[]) =>
+          prevReviews.map((r) =>
+            r.id === id ? { ...r, tags: updated.tags } : r
+          )
+        );
+        setError(null);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to update tags. Please try again.");
+      }
+    },
+    []
+  );
+
   const filteredReviews = reviews.filter((review) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
@@ -147,6 +166,7 @@ const App: React.FC = () => {
                         key={review.id}
                         review={review}
                         onDelete={deleteReview}
+                        onUpdateTags={updateReviewTags}
                       />
                     ))}
                   </div>
