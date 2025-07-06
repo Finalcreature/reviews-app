@@ -51,7 +51,6 @@ const App: React.FC = () => {
           positive_points: parsed.positive_points,
           negative_points: parsed.negative_points,
           tags: tags.length > 0 ? tags : undefined,
-          raw_text: jsonString,
         };
 
         const createdReview = await api.createReview(newReviewData);

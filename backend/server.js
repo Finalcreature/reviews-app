@@ -51,7 +51,6 @@ app.post("/api/reviews", async (req, res) => {
       positive_points,
       negative_points,
       tags,
-      raw_text, // <-- Accept raw_text from frontend
     } = req.body;
 
     // Basic validation
@@ -91,18 +90,15 @@ app.post("/api/reviews", async (req, res) => {
 
     const reviewResult = await pool.query(reviewQuery, reviewValues);
 
-    // Insert into raw_reviews table if raw_text is provided
-    if (raw_text) {
-      const rawQuery = `
-        INSERT INTO raw_reviews (id, raw_text, parsed_json)
-        VALUES ($1, $2, $3)
+    const rawQuery = `
+        INSERT INTO games (id, game_name)
+        VALUES ($1, $2)
       `;
-      await pool.query(rawQuery, [
-        reviewId,
-        raw_text,
-        JSON.stringify(newReview),
-      ]);
-    }
+    await pool.query(rawQuery, [
+      reviewId,
+      game_name,
+      JSON.stringify(newReview),
+    ]);
 
     res.status(201).json(reviewResult.rows[0]);
   } catch (err) {
