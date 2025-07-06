@@ -31,7 +31,6 @@ const App: React.FC = () => {
     async (jsonString: string, tags: string[]): Promise<boolean> => {
       try {
         const parsed = JSON.parse(jsonString);
-
         if (
           !parsed.title ||
           !parsed.game_name ||
@@ -51,6 +50,7 @@ const App: React.FC = () => {
           positive_points: parsed.positive_points,
           negative_points: parsed.negative_points,
           tags: tags.length > 0 ? tags : undefined,
+          raw_text: jsonString
         };
 
         const createdReview = await api.createReview(newReviewData);
