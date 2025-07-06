@@ -51,6 +51,7 @@ app.post("/api/reviews", async (req, res) => {
       positive_points,
       negative_points,
       tags,
+      raw_text, // <-- Accept raw_text from frontend
     } = req.body;
 
     // Basic validation
@@ -58,8 +59,10 @@ app.post("/api/reviews", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    const reviewId = uuidv4();
+
     const newReview = {
-      id: uuidv4(),
+      id: reviewId,
       title,
       game_name,
       review_text,
@@ -69,12 +72,13 @@ app.post("/api/reviews", async (req, res) => {
       tags: tags || [],
     };
 
-    const query = `
+    // Insert into reviews table
+    const reviewQuery = `
       INSERT INTO reviews (id, title, game_name, review_text, rating, positive_points, negative_points, tags)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *;
     `;
-    const values = [
+    const reviewValues = [
       newReview.id,
       newReview.title,
       newReview.game_name,
@@ -85,8 +89,22 @@ app.post("/api/reviews", async (req, res) => {
       newReview.tags,
     ];
 
-    const result = await pool.query(query, values);
-    res.status(201).json(result.rows[0]);
+    const reviewResult = await pool.query(reviewQuery, reviewValues);
+
+    // Insert into raw_reviews table if raw_text is provided
+    if (raw_text) {
+      const rawQuery = `
+        INSERT INTO raw_reviews (id, raw_text, parsed_json)
+        VALUES ($1, $2, $3)
+      `;
+      await pool.query(rawQuery, [
+        reviewId,
+        raw_text,
+        JSON.stringify(newReview),
+      ]);
+    }
+
+    res.status(201).json(reviewResult.rows[0]);
   } catch (err) {
     console.error("Error creating review:", err);
     res.status(500).json({ error: "Failed to create review" });
@@ -129,6 +147,21 @@ app.patch("/api/reviews/:id/tags", async (req, res) => {
   } catch (err) {
     console.error("Error updating tags:", err);
     res.status(500).json({ error: "Failed to update tags" });
+  }
+});
+
+app.get("/api/raw-reviews/download", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM raw_reviews");
+    const fileName = "raw-reviews.json";
+    const jsonString = JSON.stringify(result.rows, null, 2);
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.send(jsonString);
+  } catch (err) {
+    console.error("Error fetching raw reviews for download:", err);
+    res.status(500).json({ error: "Failed to generate download file" });
   }
 });
 

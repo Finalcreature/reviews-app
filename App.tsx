@@ -4,6 +4,7 @@ import * as api from "./services/api";
 import { JsonInputForm } from "./components/JsonInputForm";
 import { ReviewCard } from "./components/ReviewCard";
 import { LogoIcon, SearchIcon, SpinnerIcon } from "./components/Icons";
+import DownloadButton from "./components/DownloadButton";
 
 const App: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -31,7 +32,6 @@ const App: React.FC = () => {
     async (jsonString: string, tags: string[]): Promise<boolean> => {
       try {
         const parsed = JSON.parse(jsonString);
-
         if (
           !parsed.title ||
           !parsed.game_name ||
@@ -51,6 +51,7 @@ const App: React.FC = () => {
           positive_points: parsed.positive_points,
           negative_points: parsed.negative_points,
           tags: tags.length > 0 ? tags : undefined,
+          raw_text: jsonString,
         };
 
         const createdReview = await api.createReview(newReviewData);
@@ -114,6 +115,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
+        <DownloadButton/>
         <header className="flex items-center gap-4 mb-8">
           <LogoIcon className="h-12 w-12 text-blue-500" />
           <div>
@@ -125,7 +127,6 @@ const App: React.FC = () => {
             </p>
           </div>
         </header>
-
         <main>
           <JsonInputForm
             onAddReview={addReview}

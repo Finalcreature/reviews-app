@@ -76,3 +76,11 @@ export const deleteReviewById = async (
   }
   return response.json();
 };
+
+export const getRawReviews = async (): Promise<any[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/raw-reviews/download`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch raw reviews from server");
+  }
+  return response.json();
+};
