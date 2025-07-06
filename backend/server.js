@@ -151,15 +151,18 @@ app.patch("/api/reviews/:id/tags", async (req, res) => {
 });
 
 app.get("/api/raw-reviews/download", async (req, res) => {
-  return pool
-    .query("SELECT * FROM raw_reviews")
-    .then((result) => {
-      res.json(result.rows);
-    })
-    .catch((err) => {
-      console.error("Error fetching raw reviews:", err);
-      res.status(500).json({ error: "Failed to fetch raw reviews" });
-    });
+  try {
+    const result = await pool.query("SELECT * FROM raw_reviews");
+    const fileName = "raw-reviews.json";
+    const jsonString = JSON.stringify(result.rows, null, 2);
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.send(jsonString);
+  } catch (err) {
+    console.error("Error fetching raw reviews for download:", err);
+    res.status(500).json({ error: "Failed to generate download file" });
+  }
 });
 
 // --- Start Server ---
