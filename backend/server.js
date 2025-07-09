@@ -73,14 +73,13 @@ app.post("/api/reviews", async (req, res) => {
 
     // Insert into reviews table
     const reviewQuery = `
-      INSERT INTO reviews (id, title, game_name, review_text, rating, positive_points, negative_points, tags)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO reviews (id, title, review_text, rating, positive_points, negative_points, tags)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *;
     `;
     const reviewValues = [
       newReview.id,
       newReview.title,
-      newReview.game_name,
       newReview.review_text,
       newReview.rating,
       newReview.positive_points,
@@ -91,13 +90,12 @@ app.post("/api/reviews", async (req, res) => {
     const reviewResult = await pool.query(reviewQuery, reviewValues);
 
     const rawQuery = `
-        INSERT INTO games (id, game_name)
+        INSERT INTO games (id, name)
         VALUES ($1, $2)
       `;
     await pool.query(rawQuery, [
       reviewId,
       game_name,
-      JSON.stringify(newReview),
     ]);
 
     res.status(201).json(reviewResult.rows[0]);

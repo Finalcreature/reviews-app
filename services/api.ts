@@ -4,6 +4,9 @@
  * @param tags - The new tags array.
  * @returns A promise that resolves to the updated review.
  */
+
+const API_BASE_URL = "http://localhost:3001"; // URL of your backend server
+
 export const updateReviewTags = async (
   id: string,
   tags: string[]
@@ -23,7 +26,7 @@ export const updateReviewTags = async (
 // The updated services/api.ts file
 import { Review, NewReviewData } from "../types";
 
-const API_BASE_URL = "http://localhost:3001"; // URL of your backend server
+
 
 /**
  * [Backend] Fetches all reviews from the backend server.
