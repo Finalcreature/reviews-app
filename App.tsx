@@ -17,6 +17,7 @@ const App: React.FC = () => {
       try {
         setIsLoading(true);
         const fetchedReviews = await api.getReviews();
+        console.log(fetchedReviews);
         setReviews(fetchedReviews);
       } catch (err) {
         console.error(err);
@@ -51,7 +52,6 @@ const App: React.FC = () => {
           positive_points: parsed.positive_points,
           negative_points: parsed.negative_points,
           tags: tags.length > 0 ? tags : undefined,
-          name: parsed.name,
         };
 
         const createdReview = await api.createReview(newReviewData);
@@ -105,7 +105,7 @@ const App: React.FC = () => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const titleMatch = review.title.toLowerCase().includes(query);
-    const gameNameMatch = review.name.toLowerCase().includes(query);
+    const gameNameMatch = review.game_name.toLowerCase().includes(query);
     const tagMatch = review.tags?.some((tag) =>
       tag.toLowerCase().includes(query)
     );

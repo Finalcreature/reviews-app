@@ -69,7 +69,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
         <div className="flex justify-between items-start gap-4">
           <div className="flex-grow">
             <p className="text-sm font-semibold text-blue-400 tracking-wider uppercase">
-              {review.name}
+              {review.game_name}
             </p>
             <h3 className="text-xl sm:text-2xl font-bold text-white mt-1">
               {review.title}

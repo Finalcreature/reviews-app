@@ -31,7 +31,7 @@ app.use(express.json()); // Middleware to parse JSON request bodies
 app.get("/api/reviews", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT reviews.*, games.name FROM reviews JOIN games ON reviews.id = games.id ORDER BY created_at DESC"
+      "SELECT reviews.*, games.game_name FROM reviews JOIN games ON reviews.id = games.id ORDER BY created_at DESC"
     );
     res.json(result.rows);
   } catch (err) {
@@ -53,49 +53,64 @@ app.post("/api/reviews", async (req, res) => {
       tags,
     } = req.body;
 
-    // Basic validation
     if (!title || !game_name || !review_text || rating === undefined) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const reviewId = uuidv4();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    const newReview = {
-      id: reviewId,
-      title,
-      game_name,
-      review_text,
-      rating,
-      positive_points: positive_points || [],
-      negative_points: negative_points || [],
-      tags: tags || [],
-    };
+      // 1. Try to find existing game
+      const gameResult = await client.query(
+        `SELECT id FROM games WHERE game_name = $1`,
+        [game_name]
+      );
 
-    // Insert into reviews table
-    const reviewQuery = `
-      INSERT INTO reviews (id, title, review_text, rating, positive_points, negative_points, tags)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *;
-    `;
-    const reviewValues = [
-      newReview.id,
-      newReview.title,
-      newReview.review_text,
-      newReview.rating,
-      newReview.positive_points,
-      newReview.negative_points,
-      newReview.tags,
-    ];
+      let gameId;
+      if (gameResult.rows.length > 0) {
+        gameId = gameResult.rows[0].id;
+      } else {
+        gameId = uuidv4();
+        await client.query(
+          `INSERT INTO games (id, game_name) VALUES ($1, $2)`,
+          [gameId, game_name]
+        );
+      }
 
-    const reviewResult = await pool.query(reviewQuery, reviewValues);
+      // 2. Insert review
+      const reviewId = uuidv4();
+      const reviewInsert = await client.query(
+        `INSERT INTO reviews (id, game_id, title, review_text, rating, positive_points, negative_points, tags)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [
+          reviewId,
+          gameId,
+          title,
+          review_text,
+          rating,
+          positive_points || [],
+          negative_points || [],
+          tags || [],
+        ]
+      );
 
-    const rawQuery = `
-        INSERT INTO games (id, name)
-        VALUES ($1, $2)
-      `;
-    await pool.query(rawQuery, [reviewId, game_name]);
+      await client.query("COMMIT");
 
-    res.status(201).json(reviewResult.rows[0]);
+      // 3. Include game_name in response
+      const review = reviewInsert.rows[0];
+      res.status(201).json({
+        ...review,
+        game_name, // manually inject it for frontend use
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Transaction failed:", err);
+      res.status(500).json({ error: "Failed to create review" });
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error("Error creating review:", err);
     res.status(500).json({ error: "Failed to create review" });
