@@ -31,7 +31,9 @@ app.use(express.json()); // Middleware to parse JSON request bodies
 app.get("/api/reviews", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT reviews.*, games.game_name FROM reviews JOIN games ON reviews.id = games.id ORDER BY created_at DESC"
+      `SELECT reviews.*, 
+        games.game_name FROM reviews 
+        JOIN games ON reviews.game_id = games.id ORDER BY created_at DESC`
     );
     res.json(result.rows);
   } catch (err) {
