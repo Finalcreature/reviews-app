@@ -81,7 +81,6 @@ app.post("/api/reviews", async (req, res) => {
       tags: tags || [],
     };
 
-
     if (!title || !game_name || !review_text || rating === undefined) {
       return res.status(400).json({ error: "Missing required fields" });
     }
@@ -92,13 +91,15 @@ app.post("/api/reviews", async (req, res) => {
 
       // 1. Try to find existing game
       const gameResult = await client.query(
-        `SELECT id FROM games WHERE game_name = $1`,
+        `SELECT * FROM games WHERE game_name = $1`,
         [game_name]
       );
 
       let gameId;
       if (gameResult.rows.length > 0) {
-        gameId = gameResult.rows[0].id;
+        return res.status(409).json({
+          error: `Game "${game_name}" already exists.`,
+        });
       } else {
         gameId = uuidv4();
         await client.query(

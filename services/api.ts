@@ -26,7 +26,6 @@ export const updateReviewTags = async (
   return response.json();
 };
 
-
 /**
  * [Backend] Fetches all reviews from the backend server.
  * @returns A promise that resolves to an array of reviews.
@@ -56,7 +55,21 @@ export const createReview = async (
   });
 
   if (!response.ok) {
-    throw new Error("Failed to create review on server");
+    let errorMessage = "Failed to create review on server.";
+    try {
+      // Attempt to parse the error response body for a more specific message
+      const errorBody = await response.json();
+      if (errorBody && errorBody.error) {
+        errorMessage = errorBody.error; // Use the specific error message from the backend
+      } else if (response.status === 409) {
+        errorMessage = "A conflict occurred (e.g., duplicate game name).";
+      }
+    } catch (e) {
+      // If parsing fails, stick with the generic message or log the parsing error
+      console.error("Failed to parse error response body:", e);
+    }
+    // Throw an error with the specific message
+    throw new Error(errorMessage);
   }
   return response.json();
 };
