@@ -31,7 +31,7 @@ app.use(express.json()); // Middleware to parse JSON request bodies
 app.get("/api/reviews", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM reviews ORDER BY created_at DESC"
+      "SELECT reviews.*, games.name FROM reviews JOIN games ON reviews.id = games.id ORDER BY created_at DESC"
     );
     res.json(result.rows);
   } catch (err) {
@@ -93,10 +93,7 @@ app.post("/api/reviews", async (req, res) => {
         INSERT INTO games (id, name)
         VALUES ($1, $2)
       `;
-    await pool.query(rawQuery, [
-      reviewId,
-      game_name,
-    ]);
+    await pool.query(rawQuery, [reviewId, game_name]);
 
     res.status(201).json(reviewResult.rows[0]);
   } catch (err) {

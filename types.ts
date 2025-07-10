@@ -7,6 +7,7 @@ export interface Review {
   positive_points: string[];
   negative_points: string[];
   tags?: string[];
+  name: string;
 }
 
 export type NewReviewData = Omit<Review, "id">;

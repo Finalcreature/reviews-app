@@ -26,8 +26,6 @@ export const updateReviewTags = async (
 // The updated services/api.ts file
 import { Review, NewReviewData } from "../types";
 
-
-
 /**
  * [Backend] Fetches all reviews from the backend server.
  * @returns A promise that resolves to an array of reviews.
