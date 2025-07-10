@@ -10,3 +10,8 @@ export interface Review {
 }
 
 export type NewReviewData = Omit<Review, "id">;
+
+export interface GameSummary {
+  game_name: string;
+  rating: number;
+}

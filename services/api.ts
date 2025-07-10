@@ -5,6 +5,8 @@
  * @returns A promise that resolves to the updated review.
  */
 
+import { Review, NewReviewData, GameSummary } from "../types";
+
 const API_BASE_URL = "http://localhost:3001"; // URL of your backend server
 
 export const updateReviewTags = async (
@@ -23,8 +25,7 @@ export const updateReviewTags = async (
   }
   return response.json();
 };
-// The updated services/api.ts file
-import { Review, NewReviewData } from "../types";
+
 
 /**
  * [Backend] Fetches all reviews from the backend server.
@@ -82,6 +83,18 @@ export const getRawReviews = async (): Promise<any[]> => {
   const response = await fetch(`${API_BASE_URL}/api/raw-reviews/download`);
   if (!response.ok) {
     throw new Error("Failed to fetch raw reviews from server");
+  }
+  return response.json();
+};
+
+/**
+ * [Backend] Fetches game summaries from the backend server.
+ * @returns A promise that resolves to an array of game summaries.
+ */
+export const getGameSummaries = async (): Promise<GameSummary[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/games-summary`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch game summaries from server");
   }
   return response.json();
 };

@@ -26,8 +26,6 @@ app.use(cors()); // Enable Cross-Origin Resource Sharing for all routes
 app.use(express.json()); // Middleware to parse JSON request bodies
 
 // --- API Routes ---
-
-// GET /api/reviews - Fetch all reviews
 app.get("/api/reviews", async (req, res) => {
   try {
     const result = await pool.query(
@@ -39,6 +37,23 @@ app.get("/api/reviews", async (req, res) => {
   } catch (err) {
     console.error("Error fetching reviews:", err);
     res.status(500).json({ error: "Failed to fetch reviews" });
+  }
+});
+
+app.get("/api/games-summary", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+          games.game_name, 
+          (archived_reviews.review_json->>'rating')::numeric AS rating
+      FROM games
+      JOIN reviews ON games.id = reviews.game_id
+      JOIN archived_reviews ON reviews.id = archived_reviews.id;
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching game summaries:", err);
+    res.status(500).json({ error: "Failed to fetch game summaries" });
   }
 });
 
@@ -54,6 +69,18 @@ app.post("/api/reviews", async (req, res) => {
       negative_points,
       tags,
     } = req.body;
+
+    // The full original review data (used for archiving)
+    const originalReviewJson = {
+      title,
+      game_name,
+      review_text,
+      rating,
+      positive_points: positive_points || [],
+      negative_points: negative_points || [],
+      tags: tags || [],
+    };
+
 
     if (!title || !game_name || !review_text || rating === undefined) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -96,6 +123,12 @@ app.post("/api/reviews", async (req, res) => {
           negative_points || [],
           tags || [],
         ]
+      );
+
+      await client.query(
+        `INSERT INTO archived_reviews (id, review_json, created_at)
+         VALUES ($1, $2, NOW())`,
+        [reviewId, originalReviewJson]
       );
 
       await client.query("COMMIT");
@@ -160,9 +193,10 @@ app.patch("/api/reviews/:id/tags", async (req, res) => {
 
 app.get("/api/raw-reviews/download", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM raw_reviews");
-    const fileName = "raw-reviews.json";
-    const jsonString = JSON.stringify(result.rows, null, 2);
+    const result = await pool.query("SELECT * FROM archived_reviews");
+    const reviewsToDownload = result.rows.map((row) => row.review_json);
+    const fileName = "archived-reviews.json";
+    const jsonString = JSON.stringify(reviewsToDownload.rows, null, 2);
 
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
