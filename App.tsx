@@ -6,6 +6,7 @@ import { ReviewCard } from "./components/ReviewCard";
 import { LogoIcon, SearchIcon, SpinnerIcon } from "./components/Icons";
 import DownloadButton from "./components/DownloadButton";
 import { GameSummaryModal } from "./components/GameSummaryModal";
+import { ArchivedReviewPreviewModal } from "./components/ArchivedReviewPreviewModal";
 
 const App: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -13,6 +14,8 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [archivedReviewPreview, setArchivedReviewPreview] =
+    useState<Review | null>(null);
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -30,6 +33,11 @@ const App: React.FC = () => {
     };
     fetchReviews();
   }, []);
+
+  // pass this handler to GameSummaryModal
+  const handlePreviewArchived = (review: Review) => {
+    setArchivedReviewPreview(review);
+  };
 
   const addReview = useCallback(
     async (jsonString: string, tags: string[]): Promise<boolean> => {
@@ -114,6 +122,10 @@ const App: React.FC = () => {
     return titleMatch || gameNameMatch || tagMatch;
   });
 
+  function handleUpdateArchivedTags(id: string, tags: string[]): Promise<void> {
+    throw new Error("Function not implemented.");
+  }
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
@@ -157,6 +169,7 @@ const App: React.FC = () => {
           <GameSummaryModal
             isOpen={isSummaryModalOpen}
             onClose={() => setIsSummaryModalOpen(false)}
+            onPreviewArchived={handlePreviewArchived}
           />
           <JsonInputForm
             onAddReview={addReview}
@@ -224,6 +237,14 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
+          {archivedReviewPreview && (
+            <ArchivedReviewPreviewModal
+              isOpen={true}
+              archivedReview={archivedReviewPreview}
+              onClose={() => setArchivedReviewPreview(null)}
+              onUpdateTags={handleUpdateArchivedTags}
+            />
+          )}
         </main>
       </div>
     </div>

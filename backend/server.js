@@ -203,6 +203,33 @@ app.patch("/api/reviews/:id/tags", async (req, res) => {
   }
 });
 
+app.patch("/api/archived-reviews/:id/tags", async (req, res) => {
+  const { id } = req.params;
+  const { tags } = req.body;
+
+  if (!Array.isArray(tags)) {
+    return res.status(400).json({ error: "Tags must be an array." });
+  }
+
+  try {
+    const result = await db.query(
+      `UPDATE archived_reviews
+       SET review_json = jsonb_set(review_json, '{tags}', to_jsonb($1::text[]))
+       WHERE id = $2`,
+      [tags, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Archived review not found." });
+    }
+
+    res.status(200).json({ message: "Tags updated successfully." });
+  } catch (err) {
+    console.error("Error updating archived tags:", err);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 app.get("/api/archived-reviews/download", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM archived_reviews");
@@ -216,6 +243,37 @@ app.get("/api/archived-reviews/download", async (req, res) => {
   } catch (err) {
     console.error("Error fetching raw reviews for download:", err);
     res.status(500).json({ error: "Failed to generate download file" });
+  }
+});
+
+// GET /api/archived-reviews/game/:gameName
+app.get("/api/archived-reviews/game/:gameName", async (req, res) => {
+  const { gameName } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT id, review_json
+       FROM archived_reviews
+       WHERE review_json->>'game_name' = $1
+       LIMIT 1`, // Adjust as needed
+      [gameName]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Archived review not found" });
+    }
+
+    const row = result.rows[0];
+    const review = {
+      id: row.id,
+      ...row.review_json,
+    };
+
+    console.log("Returning review:", review);
+    res.json(review);
+  } catch (err) {
+    console.error("Error fetching archived review by game name:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

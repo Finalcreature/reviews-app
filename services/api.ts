@@ -115,3 +115,44 @@ export const getGameSummaries = async (
   }
   return response.json();
 };
+
+export async function updateArchivedReviewTags(
+  id: string,
+  tags: string[]
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/archived-reviews/${id}/tags`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tags }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to update tags");
+  }
+}
+
+export async function fetchArchivedReviewForGame(
+  gameName: string
+): Promise<Review | null> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/archived-reviews/game/${encodeURIComponent(gameName)}`
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to fetch archived review");
+  }
+
+  const data = await response.json();
+  return data as Review;
+}

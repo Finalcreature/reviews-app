@@ -2,16 +2,22 @@
 
 import React, { useState, useEffect } from "react";
 import { GameSummary } from "../types"; // Import the new interface
-import { getGameSummaries } from "../services/api"; // Import the new API function
-
+import {
+  fetchArchivedReviewForGame,
+  getGameSummaries,
+  updateArchivedReviewTags,
+} from "../services/api"; // Import the new API function
+import { Review } from "../types";
 interface GameSummaryModalProps {
   isOpen: boolean; // Controls whether the modal is visible
   onClose: () => void; // Function to call when the modal needs to be closed
+  onPreviewArchived: (review: Review) => void;
 }
 
 export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
   isOpen,
   onClose,
+  onPreviewArchived,
 }) => {
   const [summaries, setSummaries] = useState<GameSummary[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -40,9 +46,33 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
 
   if (!isOpen) return null; // Don't render anything if the modal is not open
 
+  // Click handler for game name cell
+  const handleGameNameClick = async (gameName: string) => {
+    // fetch archived review for that game name - implement api call
+    // for now assume fetchArchivedReviewForGame returns a Review or null
+    const archivedReview = await fetchArchivedReviewForGame(gameName);
+    console.log("Fetched archived review:", archivedReview);
+    if (archivedReview) {
+      if (archivedReview) {
+        onPreviewArchived(archivedReview);
+      }
+    } else {
+      alert("No archived review found for this game.");
+    }
+  };
+
+  const handleUpdateArchivedTags = async (id: string, tags: string[]) => {
+    try {
+      await updateArchivedReviewTags(id, tags); // assuming you have an API util like this
+      // optionally refetch or update local state
+    } catch (error) {
+      console.error("Failed to update tags:", error);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 backdrop-blur-sm p-4">
-      <div className="bg-slate-800 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto transform transition-all scale-100 opacity-100">
+      <div className="bg-slate-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 transform transition-all scale-100 opacity-100">
         <div className="flex justify-between items-center p-5 border-b border-slate-700">
           <h2 className="text-xl font-semibold text-white">Game Summaries</h2>
           <button
@@ -113,7 +143,10 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                 <tbody className="bg-slate-800 divide-y divide-slate-700">
                   {summaries.map((summary) => (
                     <tr key={summary.game_name}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white cursor-pointer hover:underline"
+                        onClick={() => handleGameNameClick(summary.game_name)}
+                      >
                         {summary.game_name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
