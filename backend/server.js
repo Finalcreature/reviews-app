@@ -43,12 +43,11 @@ app.get("/api/reviews", async (req, res) => {
 app.get("/api/games-summary", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT 
-          games.game_name, 
-          (archived_reviews.review_json->>'rating')::numeric AS rating
-      FROM games
-      JOIN reviews ON games.id = reviews.game_id
-      JOIN archived_reviews ON reviews.id = archived_reviews.id;
+    SELECT 
+    archived_reviews.review_json->>'game_name' AS game_name,
+    (archived_reviews.review_json->>'rating')::numeric AS rating
+    FROM archived_reviews
+    ORDER BY created_at DESC; 
     `);
     res.json(result.rows);
   } catch (err) {
@@ -197,7 +196,7 @@ app.get("/api/raw-reviews/download", async (req, res) => {
     const result = await pool.query("SELECT * FROM archived_reviews");
     const reviewsToDownload = result.rows.map((row) => row.review_json);
     const fileName = "archived-reviews.json";
-    const jsonString = JSON.stringify(reviewsToDownload.rows, null, 2);
+    const jsonString = JSON.stringify(reviewsToDownload, null, 2);
 
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
