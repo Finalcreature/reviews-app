@@ -93,7 +93,7 @@ export const deleteReviewById = async (
 };
 
 export const getRawReviews = async (): Promise<any[]> => {
-  const response = await fetch(`${API_BASE_URL}/api/raw-reviews/download`);
+  const response = await fetch(`${API_BASE_URL}/api/archived-reviews/download`);
   if (!response.ok) {
     throw new Error("Failed to fetch raw reviews from server");
   }
@@ -104,8 +104,12 @@ export const getRawReviews = async (): Promise<any[]> => {
  * [Backend] Fetches game summaries from the backend server.
  * @returns A promise that resolves to an array of game summaries.
  */
-export const getGameSummaries = async (): Promise<GameSummary[]> => {
-  const response = await fetch(`${API_BASE_URL}/api/games-summary`);
+export const getGameSummaries = async (
+  visibleOnly: boolean = false
+): Promise<GameSummary[]> => {
+  const response = await fetch(
+    `${API_BASE_URL}/api/games-summary?visible=${visibleOnly}`
+  );
   if (!response.ok) {
     throw new Error("Failed to fetch game summaries from server");
   }

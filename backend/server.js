@@ -41,14 +41,26 @@ app.get("/api/reviews", async (req, res) => {
 });
 
 app.get("/api/games-summary", async (req, res) => {
+  const onlyVisible = req.query.visible === "true";
+
+  const query = onlyVisible
+    ? `
+      SELECT 
+        games.game_name, 
+        (archived_reviews.review_json->>'rating')::numeric AS rating
+      FROM games
+      JOIN reviews ON games.id = reviews.game_id
+      JOIN archived_reviews ON reviews.id = archived_reviews.id;
+    `
+    : `
+      SELECT 
+        (review_json->>'game_name') AS game_name, 
+        (review_json->>'rating')::numeric AS rating
+      FROM archived_reviews;
+    `;
+
   try {
-    const result = await pool.query(`
-    SELECT 
-    archived_reviews.review_json->>'game_name' AS game_name,
-    (archived_reviews.review_json->>'rating')::numeric AS rating
-    FROM archived_reviews
-    ORDER BY created_at DESC; 
-    `);
+    const result = await pool.query(query);
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching game summaries:", err);
@@ -191,7 +203,7 @@ app.patch("/api/reviews/:id/tags", async (req, res) => {
   }
 });
 
-app.get("/api/raw-reviews/download", async (req, res) => {
+app.get("/api/archived-reviews/download", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM archived_reviews");
     const reviewsToDownload = result.rows.map((row) => row.review_json);

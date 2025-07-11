@@ -16,6 +16,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
   const [summaries, setSummaries] = useState<GameSummary[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [visibleOnly, setVisibleOnly] = useState<boolean>(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -24,7 +25,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
         setIsLoading(true);
         setError(null);
         try {
-          const fetchedSummaries = await getGameSummaries();
+          const fetchedSummaries = await getGameSummaries(visibleOnly);
           setSummaries(fetchedSummaries);
         } catch (err) {
           console.error("Failed to fetch game summaries:", err);
@@ -35,7 +36,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
       };
       fetchSummaries();
     }
-  }, [isOpen]); // Re-run when isOpen changes (i.e., modal opens/closes)
+  }, [isOpen, visibleOnly]); // Re-run when isOpen changes (i.e., modal opens/closes)
 
   if (!isOpen) return null; // Don't render anything if the modal is not open
 
@@ -64,6 +65,19 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
               />
             </svg>
           </button>
+        </div>
+
+        {/* 🧠 Toggle for filtering */}
+        <div className="px-5 pt-3 pb-2 flex items-center justify-end">
+          <label className="text-slate-300 text-sm flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={visibleOnly}
+              onChange={() => setVisibleOnly((v) => !v)}
+              className="accent-purple-600"
+            />
+            Show only visible reviews
+          </label>
         </div>
 
         <div className="p-5">
