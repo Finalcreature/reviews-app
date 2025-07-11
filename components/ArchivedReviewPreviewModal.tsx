@@ -35,7 +35,7 @@ export const ArchivedReviewPreviewModal: React.FC<
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4">
-      <div className="bg-slate-800 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 relative">
+      <div className="bg-slate-800 rounded-lg shadow-xl max-w-[82rem] w-full max-h-[90vh] overflow-y-auto p-6 relative">
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-slate-400 hover:text-white"
