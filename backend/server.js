@@ -230,6 +230,18 @@ app.patch("/api/archived-reviews/:id/tags", async (req, res) => {
   }
 });
 
+app.get("/api/archived-reviews", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM archived_reviews");
+    const reviews = result.rows.map((row) => row.review_json);
+
+    res.status(200).json(reviews);
+  } catch (err) {
+    console.error("Error fetching archived reviews:", err);
+    res.status(500).json({ error: "Failed to fetch archived reviews" });
+  }
+});
+
 app.get("/api/archived-reviews/download", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM archived_reviews");
