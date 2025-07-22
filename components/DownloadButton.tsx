@@ -1,11 +1,9 @@
-import React from "react";
-
 // Make sure this is defined, pointing to your server's address
 // If your FE and BE are on the same domain, you can omit it and use relative paths.
 const API_BASE_URL = "http://localhost:3001";
 
 const DownloadReviewsButton = () => {
-  const downloadUrl = `${API_BASE_URL}/api/raw-reviews/download`;
+  const downloadUrl = `${API_BASE_URL}/api/archived-reviews/download`;
 
   return (
     <div className="max-w-4xl mx-auto">

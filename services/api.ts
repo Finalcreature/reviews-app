@@ -4,6 +4,11 @@
  * @param tags - The new tags array.
  * @returns A promise that resolves to the updated review.
  */
+
+import { Review, NewReviewData, GameSummary } from "../types";
+
+const API_BASE_URL = "http://localhost:3001"; // URL of your backend server
+
 export const updateReviewTags = async (
   id: string,
   tags: string[]
@@ -20,10 +25,6 @@ export const updateReviewTags = async (
   }
   return response.json();
 };
-// The updated services/api.ts file
-import { Review, NewReviewData } from "../types";
-
-const API_BASE_URL = "http://localhost:3001"; // URL of your backend server
 
 /**
  * [Backend] Fetches all reviews from the backend server.
@@ -54,7 +55,21 @@ export const createReview = async (
   });
 
   if (!response.ok) {
-    throw new Error("Failed to create review on server");
+    let errorMessage = "Failed to create review on server.";
+    try {
+      // Attempt to parse the error response body for a more specific message
+      const errorBody = await response.json();
+      if (errorBody && errorBody.error) {
+        errorMessage = errorBody.error; // Use the specific error message from the backend
+      } else if (response.status === 409) {
+        errorMessage = "A conflict occurred (e.g., duplicate game name).";
+      }
+    } catch (e) {
+      // If parsing fails, stick with the generic message or log the parsing error
+      console.error("Failed to parse error response body:", e);
+    }
+    // Throw an error with the specific message
+    throw new Error(errorMessage);
   }
   return response.json();
 };
@@ -78,9 +93,66 @@ export const deleteReviewById = async (
 };
 
 export const getRawReviews = async (): Promise<any[]> => {
-  const response = await fetch(`${API_BASE_URL}/api/raw-reviews/download`);
+  const response = await fetch(`${API_BASE_URL}/api/archived-reviews/download`);
   if (!response.ok) {
     throw new Error("Failed to fetch raw reviews from server");
   }
   return response.json();
 };
+
+/**
+ * [Backend] Fetches game summaries from the backend server.
+ * @returns A promise that resolves to an array of game summaries.
+ */
+export const getGameSummaries = async (
+  visibleOnly: boolean = false
+): Promise<GameSummary[]> => {
+  const response = await fetch(
+    `${API_BASE_URL}/api/games-summary?visible=${visibleOnly}`
+  );
+  if (!response.ok) {
+    throw new Error("Failed to fetch game summaries from server");
+  }
+  return response.json();
+};
+
+export async function updateArchivedReviewTags(
+  id: string,
+  tags: string[]
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/archived-reviews/${id}/tags`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tags }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to update tags");
+  }
+}
+
+export async function fetchArchivedReviewForGame(
+  gameName: string
+): Promise<Review | null> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/archived-reviews/game/${encodeURIComponent(gameName)}`
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to fetch archived review");
+  }
+
+  const data = await response.json();
+  return data as Review;
+}

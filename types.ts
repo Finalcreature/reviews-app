@@ -7,7 +7,11 @@ export interface Review {
   positive_points: string[];
   negative_points: string[];
   tags?: string[];
-  raw_text: string;
 }
 
 export type NewReviewData = Omit<Review, "id">;
+
+export interface GameSummary {
+  game_name: string;
+  rating: number;
+}

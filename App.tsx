@@ -5,18 +5,24 @@ import { JsonInputForm } from "./components/JsonInputForm";
 import { ReviewCard } from "./components/ReviewCard";
 import { LogoIcon, SearchIcon, SpinnerIcon } from "./components/Icons";
 import DownloadButton from "./components/DownloadButton";
+import { GameSummaryModal } from "./components/GameSummaryModal";
+import { ArchivedReviewPreviewModal } from "./components/ArchivedReviewPreviewModal";
 
 const App: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [archivedReviewPreview, setArchivedReviewPreview] =
+    useState<Review | null>(null);
 
   useEffect(() => {
     const fetchReviews = async () => {
       try {
         setIsLoading(true);
         const fetchedReviews = await api.getReviews();
+        console.log(fetchedReviews);
         setReviews(fetchedReviews);
       } catch (err) {
         console.error(err);
@@ -27,6 +33,11 @@ const App: React.FC = () => {
     };
     fetchReviews();
   }, []);
+
+  // pass this handler to GameSummaryModal
+  const handlePreviewArchived = (review: Review) => {
+    setArchivedReviewPreview(review);
+  };
 
   const addReview = useCallback(
     async (jsonString: string, tags: string[]): Promise<boolean> => {
@@ -51,7 +62,6 @@ const App: React.FC = () => {
           positive_points: parsed.positive_points,
           negative_points: parsed.negative_points,
           tags: tags.length > 0 ? tags : undefined,
-          raw_text: jsonString,
         };
 
         const createdReview = await api.createReview(newReviewData);
@@ -112,10 +122,38 @@ const App: React.FC = () => {
     return titleMatch || gameNameMatch || tagMatch;
   });
 
+  function handleUpdateArchivedTags(id: string, tags: string[]): Promise<void> {
+    throw new Error("Function not implemented.");
+  }
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
-        <DownloadButton/>
+        <div className="sticky top-4 z-50 flex justify-end space-x-3 w-full pr-4">
+          {" "}
+          {/* Added pr-4 for padding from right edge */}
+          <button
+            onClick={() => setIsSummaryModalOpen(true)}
+            className="p-2 rounded-full bg-purple-600 hover:bg-purple-700 shadow-lg transition-colors flex-shrink-0"
+            title="View Game Summaries"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-6 h-6 text-white"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25"
+              />
+            </svg>
+          </button>
+          <DownloadButton /> {/* Your existing DownloadButton */}
+        </div>
         <header className="flex items-center gap-4 mb-8">
           <LogoIcon className="h-12 w-12 text-blue-500" />
           <div>
@@ -128,6 +166,11 @@ const App: React.FC = () => {
           </div>
         </header>
         <main>
+          <GameSummaryModal
+            isOpen={isSummaryModalOpen}
+            onClose={() => setIsSummaryModalOpen(false)}
+            onPreviewArchived={handlePreviewArchived}
+          />
           <JsonInputForm
             onAddReview={addReview}
             error={error}
@@ -194,6 +237,14 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
+          {archivedReviewPreview && (
+            <ArchivedReviewPreviewModal
+              isOpen={true}
+              archivedReview={archivedReviewPreview}
+              onClose={() => setArchivedReviewPreview(null)}
+              onUpdateTags={handleUpdateArchivedTags}
+            />
+          )}
         </main>
       </div>
     </div>

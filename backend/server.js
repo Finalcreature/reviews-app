@@ -26,17 +26,45 @@ app.use(cors()); // Enable Cross-Origin Resource Sharing for all routes
 app.use(express.json()); // Middleware to parse JSON request bodies
 
 // --- API Routes ---
-
-// GET /api/reviews - Fetch all reviews
 app.get("/api/reviews", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM reviews ORDER BY created_at DESC"
+      `SELECT reviews.*, 
+        games.game_name FROM reviews 
+        JOIN games ON reviews.game_id = games.id ORDER BY created_at DESC`
     );
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching reviews:", err);
     res.status(500).json({ error: "Failed to fetch reviews" });
+  }
+});
+
+app.get("/api/games-summary", async (req, res) => {
+  const onlyVisible = req.query.visible === "true";
+
+  const query = onlyVisible
+    ? `
+      SELECT 
+        games.game_name, 
+        (archived_reviews.review_json->>'rating')::numeric AS rating
+      FROM games
+      JOIN reviews ON games.id = reviews.game_id
+      JOIN archived_reviews ON reviews.id = archived_reviews.id;
+    `
+    : `
+      SELECT 
+        (review_json->>'game_name') AS game_name, 
+        (review_json->>'rating')::numeric AS rating
+      FROM archived_reviews;
+    `;
+
+  try {
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching game summaries:", err);
+    res.status(500).json({ error: "Failed to fetch game summaries" });
   }
 });
 
@@ -51,18 +79,10 @@ app.post("/api/reviews", async (req, res) => {
       positive_points,
       negative_points,
       tags,
-      raw_text, // <-- Accept raw_text from frontend
     } = req.body;
 
-    // Basic validation
-    if (!title || !game_name || !review_text || rating === undefined) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    const reviewId = uuidv4();
-
-    const newReview = {
-      id: reviewId,
+    // The full original review data (used for archiving)
+    const originalReviewJson = {
       title,
       game_name,
       review_text,
@@ -72,39 +92,72 @@ app.post("/api/reviews", async (req, res) => {
       tags: tags || [],
     };
 
-    // Insert into reviews table
-    const reviewQuery = `
-      INSERT INTO reviews (id, title, game_name, review_text, rating, positive_points, negative_points, tags)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *;
-    `;
-    const reviewValues = [
-      newReview.id,
-      newReview.title,
-      newReview.game_name,
-      newReview.review_text,
-      newReview.rating,
-      newReview.positive_points,
-      newReview.negative_points,
-      newReview.tags,
-    ];
-
-    const reviewResult = await pool.query(reviewQuery, reviewValues);
-
-    // Insert into raw_reviews table if raw_text is provided
-    if (raw_text) {
-      const rawQuery = `
-        INSERT INTO raw_reviews (id, raw_text, parsed_json)
-        VALUES ($1, $2, $3)
-      `;
-      await pool.query(rawQuery, [
-        reviewId,
-        raw_text,
-        JSON.stringify(newReview),
-      ]);
+    if (!title || !game_name || !review_text || rating === undefined) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
-    res.status(201).json(reviewResult.rows[0]);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // 1. Try to find existing game
+      const gameResult = await client.query(
+        `SELECT * FROM games WHERE game_name = $1`,
+        [game_name]
+      );
+
+      let gameId;
+      if (gameResult.rows.length > 0) {
+        return res.status(409).json({
+          error: `Game "${game_name}" already exists.`,
+        });
+      } else {
+        gameId = uuidv4();
+        await client.query(
+          `INSERT INTO games (id, game_name) VALUES ($1, $2)`,
+          [gameId, game_name]
+        );
+      }
+
+      // 2. Insert review
+      const reviewId = uuidv4();
+      const reviewInsert = await client.query(
+        `INSERT INTO reviews (id, game_id, title, review_text, rating, positive_points, negative_points, tags)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [
+          reviewId,
+          gameId,
+          title,
+          review_text,
+          rating,
+          positive_points || [],
+          negative_points || [],
+          tags || [],
+        ]
+      );
+
+      await client.query(
+        `INSERT INTO archived_reviews (id, review_json, created_at)
+         VALUES ($1, $2, NOW())`,
+        [reviewId, originalReviewJson]
+      );
+
+      await client.query("COMMIT");
+
+      // 3. Include game_name in response
+      const review = reviewInsert.rows[0];
+      res.status(201).json({
+        ...review,
+        game_name, // manually inject it for frontend use
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Transaction failed:", err);
+      res.status(500).json({ error: "Failed to create review" });
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error("Error creating review:", err);
     res.status(500).json({ error: "Failed to create review" });
@@ -150,11 +203,51 @@ app.patch("/api/reviews/:id/tags", async (req, res) => {
   }
 });
 
-app.get("/api/raw-reviews/download", async (req, res) => {
+app.patch("/api/archived-reviews/:id/tags", async (req, res) => {
+  const { id } = req.params;
+  const { tags } = req.body;
+
+  if (!Array.isArray(tags)) {
+    return res.status(400).json({ error: "Tags must be an array." });
+  }
+
   try {
-    const result = await pool.query("SELECT * FROM raw_reviews");
-    const fileName = "raw-reviews.json";
-    const jsonString = JSON.stringify(result.rows, null, 2);
+    const result = await db.query(
+      `UPDATE archived_reviews
+       SET review_json = jsonb_set(review_json, '{tags}', to_jsonb($1::text[]))
+       WHERE id = $2`,
+      [tags, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Archived review not found." });
+    }
+
+    res.status(200).json({ message: "Tags updated successfully." });
+  } catch (err) {
+    console.error("Error updating archived tags:", err);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+app.get("/api/archived-reviews", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM archived_reviews");
+    const reviews = result.rows.map((row) => row.review_json);
+
+    res.status(200).json(reviews);
+  } catch (err) {
+    console.error("Error fetching archived reviews:", err);
+    res.status(500).json({ error: "Failed to fetch archived reviews" });
+  }
+});
+
+app.get("/api/archived-reviews/download", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM archived_reviews");
+    const reviewsToDownload = result.rows.map((row) => row.review_json);
+    const fileName = "archived-reviews.json";
+    const jsonString = JSON.stringify(reviewsToDownload, null, 2);
 
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -162,6 +255,37 @@ app.get("/api/raw-reviews/download", async (req, res) => {
   } catch (err) {
     console.error("Error fetching raw reviews for download:", err);
     res.status(500).json({ error: "Failed to generate download file" });
+  }
+});
+
+// GET /api/archived-reviews/game/:gameName
+app.get("/api/archived-reviews/game/:gameName", async (req, res) => {
+  const { gameName } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT id, review_json
+       FROM archived_reviews
+       WHERE review_json->>'game_name' = $1
+       LIMIT 1`, // Adjust as needed
+      [gameName]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Archived review not found" });
+    }
+
+    const row = result.rows[0];
+    const review = {
+      id: row.id,
+      ...row.review_json,
+    };
+
+    console.log("Returning review:", review);
+    res.json(review);
+  } catch (err) {
+    console.error("Error fetching archived review by game name:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
