@@ -289,6 +289,25 @@ app.get("/api/archived-reviews/game/:gameName", async (req, res) => {
   }
 });
 
+// server.js (or your Express routes)
+app.put("/api/archived-reviews/:id", async (req, res) => {
+  const { id } = req.params;
+  const updatedReview = req.body;
+
+  try {
+    const result = await pool.query(
+      "UPDATE archived_reviews SET review_json = $1 WHERE id = $2",
+      [updatedReview, id]
+    );
+
+    res.send({ success: true });
+  } catch (err) {
+    console.error("Error updating archived review", err);
+    res.status(500).send("Failed to update review");
+  }
+});
+
+
 // --- Start Server ---
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
