@@ -51,7 +51,6 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
     // fetch archived review for that game name - implement api call
     // for now assume fetchArchivedReviewForGame returns a Review or null
     const archivedReview = await fetchArchivedReviewForGame(gameName);
-    console.log("Fetched archived review:", archivedReview);
     if (archivedReview) {
       if (archivedReview) {
         onPreviewArchived(archivedReview);

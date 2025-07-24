@@ -1,27 +1,25 @@
-import React, { useState } from "react";
-import { Review } from "../types"; // Reuse same Review type or create ArchivedReview if different
-import { TagIcon, ChevronDownIcon, ChevronUpIcon } from "./Icons";
+import React, { useState, useEffect } from "react";
+import { Review } from "../types";
 import { updateArchivedReview } from "@/services/api";
 
 interface ArchivedReviewPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   archivedReview: Review | null;
-  onUpdateTags: (id: string, tags: string[]) => Promise<void>;
+  onUpdateReview: (id: string, updatedReview: Review) => void;
+  onUpdateTags: (id: string, tags: string[]) => void;
 }
 
 export const ArchivedReviewPreviewModal: React.FC<
   ArchivedReviewPreviewModalProps
-> = ({ isOpen, onClose, archivedReview, onUpdateTags }) => {
-  const [isEditingTags, setIsEditingTags] = useState(false);
-  const [editTags, setEditTags] = useState<string>("");
+> = ({ isOpen, onClose, archivedReview }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editableReview, setEditableReview] = useState<Review | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">(
     "idle"
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (archivedReview) {
       setEditableReview({ ...archivedReview });
       setIsEditing(false);
@@ -29,11 +27,12 @@ export const ArchivedReviewPreviewModal: React.FC<
     }
   }, [archivedReview]);
 
-  if (!isOpen || !archivedReview) return null;
+  if (!isOpen || !editableReview) return null;
 
   const handleFieldChange = (field: keyof Review, value: any) => {
-    if (!editableReview) return;
-    setEditableReview({ ...editableReview, [field]: value });
+    setEditableReview((prev) =>
+      prev ? { ...prev, [field]: value } : prev
+    );
   };
 
   return (
@@ -52,18 +51,19 @@ export const ArchivedReviewPreviewModal: React.FC<
         </h2>
 
         <p className="text-blue-400 font-semibold uppercase text-sm mb-1">
-          {archivedReview.game_name}
+          {editableReview.game_name}
         </p>
+
         <h3 className="text-2xl font-bold text-white mb-4">
           {isEditing ? (
             <input
               type="text"
               className="w-full bg-slate-700 text-white p-2 rounded"
-              value={editableReview?.title || ""}
+              value={editableReview.title}
               onChange={(e) => handleFieldChange("title", e.target.value)}
             />
           ) : (
-            archivedReview.title
+            editableReview.title
           )}
         </h3>
 
@@ -72,12 +72,14 @@ export const ArchivedReviewPreviewModal: React.FC<
           {isEditing ? (
             <textarea
               className="w-full mt-2 bg-slate-700 text-white p-2 rounded h-40"
-              value={editableReview?.review_text || ""}
-              onChange={(e) => handleFieldChange("review_text", e.target.value)}
+              value={editableReview.review_text}
+              onChange={(e) =>
+                handleFieldChange("review_text", e.target.value)
+              }
             />
           ) : (
             <p className="whitespace-pre-wrap text-slate-300">
-              {archivedReview.review_text}
+              {editableReview.review_text}
             </p>
           )}
         </div>
@@ -89,7 +91,7 @@ export const ArchivedReviewPreviewModal: React.FC<
               <input
                 type="text"
                 className="bg-slate-700 text-white p-2 rounded w-full"
-                value={editableReview?.tags?.join(", ") || ""}
+                value={editableReview.tags?.join(", ") || ""}
                 onChange={(e) =>
                   handleFieldChange(
                     "tags",
@@ -100,9 +102,9 @@ export const ArchivedReviewPreviewModal: React.FC<
                   )
                 }
               />
-            ) : archivedReview.tags?.length ? (
+            ) : editableReview.tags?.length ? (
               <div className="flex flex-wrap gap-2 mt-2">
-                {archivedReview.tags.map((tag, idx) => (
+                {editableReview.tags.map((tag, idx) => (
                   <span
                     key={idx}
                     className="bg-slate-700 text-slate-300 text-xs font-medium px-2.5 py-1 rounded-full"
@@ -117,7 +119,6 @@ export const ArchivedReviewPreviewModal: React.FC<
           </div>
         </div>
 
-        {/* Optionally add other info: rating, positive/negative points */}
         <div className="mb-4">
           <strong>Rating:</strong>{" "}
           {isEditing ? (
@@ -126,15 +127,16 @@ export const ArchivedReviewPreviewModal: React.FC<
               min={0}
               max={10}
               className="bg-slate-700 text-white p-1 w-16 rounded"
-              value={editableReview?.rating || 0}
+              value={editableReview.rating}
               onChange={(e) =>
                 handleFieldChange("rating", parseInt(e.target.value))
               }
             />
           ) : (
-            `${archivedReview.rating}/10`
+            `${editableReview.rating}/10`
           )}
         </div>
+
         <div className="flex gap-4 mt-6">
           {isEditing ? (
             <>
@@ -159,7 +161,7 @@ export const ArchivedReviewPreviewModal: React.FC<
               </button>
               <button
                 onClick={() => {
-                  setEditableReview({ ...archivedReview! });
+                  setEditableReview(archivedReview!);
                   setIsEditing(false);
                 }}
                 className="bg-slate-600 text-white px-4 py-2 rounded"
@@ -185,8 +187,6 @@ export const ArchivedReviewPreviewModal: React.FC<
             <span className="text-red-400 ml-2 mt-2">Failed to save.</span>
           )}
         </div>
-
-        {/* Positive and Negative Points if you want, else skip */}
       </div>
     </div>
   );

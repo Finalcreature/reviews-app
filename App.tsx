@@ -22,7 +22,6 @@ const App: React.FC = () => {
       try {
         setIsLoading(true);
         const fetchedReviews = await api.getReviews();
-        console.log(fetchedReviews);
         setReviews(fetchedReviews);
       } catch (err) {
         console.error(err);
@@ -37,6 +36,22 @@ const App: React.FC = () => {
   // pass this handler to GameSummaryModal
   const handlePreviewArchived = (review: Review) => {
     setArchivedReviewPreview(review);
+  };
+
+  const handleUpdateArchivedReview = async (
+    id: string,
+    updatedReview: Review
+  ) => {
+    try {
+      await fetch(`/api/archived-reviews/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedReview),
+      });
+      // update state if necessary
+    } catch (error) {
+      console.error("Failed to update archived review:", error);
+    }
   };
 
   const addReview = useCallback(
@@ -243,6 +258,7 @@ const App: React.FC = () => {
               archivedReview={archivedReviewPreview}
               onClose={() => setArchivedReviewPreview(null)}
               onUpdateTags={handleUpdateArchivedTags}
+              onUpdateReview={handleUpdateArchivedReview}
             />
           )}
         </main>
