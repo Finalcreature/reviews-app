@@ -281,7 +281,6 @@ app.get("/api/archived-reviews/game/:gameName", async (req, res) => {
       ...row.review_json,
     };
 
-    console.log("Returning review:", review);
     res.json(review);
   } catch (err) {
     console.error("Error fetching archived review by game name:", err);
@@ -306,7 +305,6 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
     res.status(500).send("Failed to update review");
   }
 });
-
 
 // --- Start Server ---
 app.listen(PORT, () => {

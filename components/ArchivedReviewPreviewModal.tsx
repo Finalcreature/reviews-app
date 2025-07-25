@@ -30,14 +30,18 @@ export const ArchivedReviewPreviewModal: React.FC<
   if (!isOpen || !editableReview) return null;
 
   const handleFieldChange = (field: keyof Review, value: any) => {
-    setEditableReview((prev) =>
-      prev ? { ...prev, [field]: value } : prev
-    );
+    setEditableReview((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4">
-      <div className="bg-slate-800 rounded-lg shadow-xl max-w-[82rem] w-full max-h-[90vh] overflow-y-auto p-6 relative">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-slate-800 rounded-lg shadow-xl max-w-[82rem] w-full max-h-[90vh] overflow-y-auto p-6 relative"
+      >
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-slate-400 hover:text-white"
@@ -73,9 +77,7 @@ export const ArchivedReviewPreviewModal: React.FC<
             <textarea
               className="w-full mt-2 bg-slate-700 text-white p-2 rounded h-40"
               value={editableReview.review_text}
-              onChange={(e) =>
-                handleFieldChange("review_text", e.target.value)
-              }
+              onChange={(e) => handleFieldChange("review_text", e.target.value)}
             />
           ) : (
             <p className="whitespace-pre-wrap text-slate-300">
