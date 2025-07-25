@@ -79,7 +79,9 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
         className="bg-slate-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 transform transition-all scale-100 opacity-100"
       >
         <div className="flex justify-between items-center p-5 border-b border-slate-700">
-          <h2 className="text-xl font-semibold text-white">Game Summaries</h2>
+          <h2 className="text-xl font-semibold text-white">
+            Game Summaries: {summaries.length}
+          </h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-white transition-colors"
