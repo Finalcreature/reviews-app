@@ -156,3 +156,17 @@ export async function fetchArchivedReviewForGame(
   const data = await response.json();
   return data as Review;
 }
+
+export async function updateArchivedReview(id: string, data: any) {
+  const res = await fetch(`${API_BASE_URL}/api/archived-reviews/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) throw new Error("Failed to update archived review");
+
+  return res.json();
+}

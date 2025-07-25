@@ -51,7 +51,6 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
     // fetch archived review for that game name - implement api call
     // for now assume fetchArchivedReviewForGame returns a Review or null
     const archivedReview = await fetchArchivedReviewForGame(gameName);
-    console.log("Fetched archived review:", archivedReview);
     if (archivedReview) {
       if (archivedReview) {
         onPreviewArchived(archivedReview);
@@ -71,8 +70,14 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 backdrop-blur-sm p-4">
-      <div className="bg-slate-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 transform transition-all scale-100 opacity-100">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 backdrop-blur-sm p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-slate-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 transform transition-all scale-100 opacity-100"
+      >
         <div className="flex justify-between items-center p-5 border-b border-slate-700">
           <h2 className="text-xl font-semibold text-white">Game Summaries</h2>
           <button
