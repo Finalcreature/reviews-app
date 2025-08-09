@@ -54,9 +54,21 @@ export const ArchivedReviewPreviewModal: React.FC<
           Archived Review Preview
         </h2>
 
-        <p className="text-blue-400 font-semibold uppercase text-sm mb-1">
-          {editableReview.game_name}
-        </p>
+        <div className="mb-4">
+          <strong>Game Name:</strong>
+          {isEditing ? (
+            <input
+              type="text"
+              className="w-full bg-slate-700 text-white p-2 rounded mt-2"
+              value={editableReview.game_name}
+              onChange={(e) => handleFieldChange("game_name", e.target.value)}
+            />
+          ) : (
+            <p className="text-blue-400 font-semibold uppercase text-sm mb-1">
+              {editableReview.game_name}
+            </p>
+          )}
+        </div>
 
         <h3 className="text-2xl font-bold text-white mb-4">
           {isEditing ? (
