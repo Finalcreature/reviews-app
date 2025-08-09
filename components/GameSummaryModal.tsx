@@ -20,6 +20,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
   onPreviewArchived,
 }) => {
   const [summaries, setSummaries] = useState<GameSummary[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [visibleOnly, setVisibleOnly] = useState<boolean>(false);
@@ -69,6 +70,13 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
     }
   };
 
+  // Compute filtered and sorted summaries inside the component
+  const filteredSummaries: GameSummary[] = summaries
+    .filter((summary: GameSummary) =>
+      summary.game_name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a: GameSummary, b: GameSummary) => a.game_name.localeCompare(b.game_name));
+
   return (
     <div
       onClick={onClose}
@@ -78,10 +86,17 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         className="bg-slate-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 transform transition-all scale-100 opacity-100"
       >
-        <div className="flex justify-between items-center p-5 border-b border-slate-700">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-5 border-b border-slate-700">
           <h2 className="text-xl font-semibold text-white">
             Game Summaries: {summaries.length}
           </h2>
+          <input
+            type="text"
+            placeholder="Search game name..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="mb-2 sm:mb-0 px-3 py-2 border border-slate-600 rounded w-full sm:w-64 bg-slate-900 text-slate-200"
+          />
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-white transition-colors"
@@ -148,7 +163,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="bg-slate-800 divide-y divide-slate-700">
-                  {summaries.map((summary) => (
+                  {filteredSummaries.map((summary) => (
                     <tr key={summary.game_name}>
                       <td
                         className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white cursor-pointer hover:underline"
