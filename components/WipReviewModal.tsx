@@ -39,7 +39,7 @@ export const WipReviewModal: React.FC<WipReviewModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-slate-800 rounded-lg shadow-xl max-w-xl w-full max-h-[80vh] overflow-y-auto p-6 relative"
+        className="bg-slate-800 rounded-lg shadow-xl max-w-5xl w-full max-h-[92vh] overflow-y-auto p-6 relative"
       >
         <button
           onClick={onClose}
@@ -51,43 +51,45 @@ export const WipReviewModal: React.FC<WipReviewModalProps> = ({
 
         <h2 className="text-xl font-semibold text-white mb-4">WIP Reviews</h2>
 
-        <div className="mb-4">
-          <input
-            placeholder="Game name"
-            value={gameName}
-            onChange={(e) => setGameName(e.target.value)}
-            className="w-full bg-slate-700 text-white p-2 rounded mb-2"
-          />
-          <textarea
-            placeholder="Remarks"
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-            className="w-full bg-slate-700 text-white p-2 rounded h-24"
-          />
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={() => {
-                if (!gameName.trim()) return;
-                onAddWip(gameName.trim(), remarks.trim());
-                setGameName("");
-                setRemarks("");
-              }}
-              className="bg-green-600 text-white px-4 py-2 rounded"
-            >
-              Add
-            </button>
-            <button
-              onClick={() => {
-                setGameName("");
-                setRemarks("");
-                setIsEditingId(null);
-              }}
-              className="bg-slate-600 text-white px-4 py-2 rounded"
-            >
-              Clear
-            </button>
+        {isEditingId === null && (
+          <div className="mb-4">
+            <input
+              placeholder="Game name"
+              value={gameName}
+              onChange={(e) => setGameName(e.target.value)}
+              className="w-full bg-slate-700 text-white p-2 rounded mb-2"
+            />
+            <textarea
+              placeholder="Remarks"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              className="w-full bg-slate-700 text-white p-2 rounded h-24"
+            />
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => {
+                  if (!gameName.trim()) return;
+                  onAddWip(gameName.trim(), remarks.trim());
+                  setGameName("");
+                  setRemarks("");
+                }}
+                className="bg-green-600 text-white px-4 py-2 rounded"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => {
+                  setGameName("");
+                  setRemarks("");
+                  setIsEditingId(null);
+                }}
+                className="bg-slate-600 text-white px-4 py-2 rounded"
+              >
+                Clear
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="space-y-3">
           {wipReviews.length === 0 ? (
@@ -111,7 +113,11 @@ export const WipReviewModal: React.FC<WipReviewModalProps> = ({
                       <button
                         onClick={() => {
                           if (!isEditingId) return;
-                          onUpdateWip(isEditingId, gameName.trim(), remarks.trim());
+                          onUpdateWip(
+                            isEditingId,
+                            gameName.trim(),
+                            remarks.trim()
+                          );
                           setIsEditingId(null);
                           setGameName("");
                           setRemarks("");
@@ -136,9 +142,15 @@ export const WipReviewModal: React.FC<WipReviewModalProps> = ({
                   <>
                     <div className="flex justify-between items-start">
                       <div>
-                        <div className="font-semibold text-white">{w.gameName}</div>
-                        <div className="text-slate-400 text-sm whitespace-pre-wrap">{w.remarks}</div>
-                        <div className="text-slate-500 text-xs mt-2">Created: {new Date(w.createdAt).toLocaleString()}</div>
+                        <div className="font-semibold text-white">
+                          {w.gameName}
+                        </div>
+                        <div className="text-slate-400 text-sm whitespace-pre-wrap">
+                          {w.remarks}
+                        </div>
+                        <div className="text-slate-500 text-xs mt-2">
+                          Created: {new Date(w.createdAt).toLocaleString()}
+                        </div>
                       </div>
                       <div className="flex flex-col gap-2">
                         <button
