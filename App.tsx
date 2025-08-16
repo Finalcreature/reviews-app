@@ -7,6 +7,8 @@ import { LogoIcon, SearchIcon, SpinnerIcon } from "./components/Icons";
 import DownloadButton from "./components/DownloadButton";
 import { GameSummaryModal } from "./components/GameSummaryModal";
 import { ArchivedReviewPreviewModal } from "./components/ArchivedReviewPreviewModal";
+import { WipReviewModal } from "./components/WipReviewModal";
+import { WipReview } from "./types";
 
 const App: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -16,6 +18,20 @@ const App: React.FC = () => {
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [archivedReviewPreview, setArchivedReviewPreview] =
     useState<Review | null>(null);
+  const [wipReviews, setWipReviews] = useState<WipReview[]>([]);
+  const [isWipModalOpen, setIsWipModalOpen] = useState(false);
+
+  useEffect(() => {
+    const loadWip = async () => {
+      try {
+        const list = await api.getWipReviews();
+        setWipReviews(list);
+      } catch (err) {
+        console.error("Failed to load WIP reviews", err);
+      }
+    };
+    loadWip();
+  }, []);
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -51,6 +67,41 @@ const App: React.FC = () => {
       // update state if necessary
     } catch (error) {
       console.error("Failed to update archived review:", error);
+    }
+  };
+
+  const handleAddWip = async (gameName: string, remarks: string) => {
+    try {
+      const created = await api.createWipReview({ gameName, remarks });
+      setWipReviews((prev) => [created, ...prev]);
+    } catch (err) {
+      console.error("Failed to create WIP review", err);
+    }
+  };
+
+  const handleUpdateWip = async (id: string, gameName: string, remarks: string) => {
+    try {
+      const updated = await api.updateWipReview(id, { gameName, remarks });
+      setWipReviews((prev) => prev.map((w) => (w.id === id ? updated : w)));
+    } catch (err) {
+      console.error("Failed to update WIP review", err);
+    }
+  };
+
+  const handleUpdateArchivedTags = async (id: string, tags: string[]) => {
+    try {
+      await api.updateArchivedReviewTags(id, tags);
+    } catch (err) {
+      console.error("Failed to update archived tags", err);
+    }
+  };
+
+  const handleDeleteWip = async (id: string) => {
+    try {
+      await api.deleteWipReview(id);
+      setWipReviews((prev) => prev.filter((w) => w.id !== id));
+    } catch (err) {
+      console.error("Failed to delete WIP review", err);
     }
   };
 
@@ -137,9 +188,7 @@ const App: React.FC = () => {
     return titleMatch || gameNameMatch || tagMatch;
   });
 
-  function handleUpdateArchivedTags(id: string, tags: string[]): Promise<void> {
-    throw new Error("Function not implemented.");
-  }
+
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
@@ -168,6 +217,13 @@ const App: React.FC = () => {
             </svg>
           </button>
           <DownloadButton /> {/* Your existing DownloadButton */}
+          <button
+            onClick={() => setIsWipModalOpen(true)}
+            className="p-2 rounded-full bg-yellow-600 hover:bg-yellow-700 shadow-lg transition-colors flex-shrink-0"
+            title="WIP reviews"
+          >
+            WIP
+          </button>
         </div>
         <header className="flex items-center gap-4 mb-8">
           <LogoIcon className="h-12 w-12 text-blue-500" />
@@ -261,6 +317,14 @@ const App: React.FC = () => {
               onUpdateReview={handleUpdateArchivedReview}
             />
           )}
+          <WipReviewModal
+            isOpen={isWipModalOpen}
+            onClose={() => setIsWipModalOpen(false)}
+            wipReviews={wipReviews}
+            onAddWip={handleAddWip}
+            onUpdateWip={handleUpdateWip}
+            onDeleteWip={handleDeleteWip}
+          />
         </main>
       </div>
     </div>

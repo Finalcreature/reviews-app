@@ -170,3 +170,43 @@ export async function updateArchivedReview(id: string, data: any) {
 
   return res.json();
 }
+
+// WIP Reviews API
+export interface WipCreateData {
+  gameName: string;
+  remarks: string;
+}
+
+export async function getWipReviews(): Promise<any[]> {
+  const res = await fetch(`${API_BASE_URL}/api/wip-reviews`);
+  if (!res.ok) throw new Error("Failed to fetch wip reviews");
+  return res.json();
+}
+
+export async function createWipReview(data: WipCreateData) {
+  const res = await fetch(`${API_BASE_URL}/api/wip-reviews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to create wip review");
+  return res.json();
+}
+
+export async function updateWipReview(id: string, data: WipCreateData) {
+  const res = await fetch(`${API_BASE_URL}/api/wip-reviews/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update wip review");
+  return res.json();
+}
+
+export async function deleteWipReview(id: string) {
+  const res = await fetch(`${API_BASE_URL}/api/wip-reviews/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete wip review");
+  return res.json();
+}

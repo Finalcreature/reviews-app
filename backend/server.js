@@ -306,6 +306,68 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
   }
 });
 
+// --- WIP Reviews CRUD ---
+// Recommended SQL to create table:
+// CREATE TABLE wip_reviews (
+//   id UUID PRIMARY KEY,
+//   game_name TEXT NOT NULL,
+//   remarks TEXT,
+//   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+//   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+// );
+
+app.get("/api/wip-reviews", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT id, game_name, remarks, created_at, updated_at FROM wip_reviews ORDER BY created_at DESC");
+    const rows = result.rows.map(r => ({ id: r.id, gameName: r.game_name, remarks: r.remarks, createdAt: r.created_at, updatedAt: r.updated_at }));
+    res.json(rows);
+  } catch (err) {
+    console.error("Error fetching WIP reviews:", err);
+    res.status(500).json({ error: "Failed to fetch WIP reviews" });
+  }
+});
+
+app.post("/api/wip-reviews", async (req, res) => {
+  try {
+    const { gameName, remarks } = req.body;
+    if (!gameName) return res.status(400).json({ error: "gameName required" });
+    const id = uuidv4();
+    const now = new Date();
+    await pool.query("INSERT INTO wip_reviews (id, game_name, remarks, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)", [id, gameName, remarks || "", now, now]);
+    res.status(201).json({ id, gameName, remarks: remarks || "", createdAt: now.toISOString(), updatedAt: now.toISOString() });
+  } catch (err) {
+    console.error("Error creating WIP review:", err);
+    res.status(500).json({ error: "Failed to create WIP review" });
+  }
+});
+
+app.put("/api/wip-reviews/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { gameName, remarks } = req.body;
+    const now = new Date();
+    const result = await pool.query("UPDATE wip_reviews SET game_name = $1, remarks = $2, updated_at = $3 WHERE id = $4 RETURNING id, game_name, remarks, created_at, updated_at", [gameName, remarks || "", now, id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: "WIP review not found" });
+    const r = result.rows[0];
+    res.json({ id: r.id, gameName: r.game_name, remarks: r.remarks, createdAt: r.created_at, updatedAt: r.updated_at });
+  } catch (err) {
+    console.error("Error updating WIP review:", err);
+    res.status(500).json({ error: "Failed to update WIP review" });
+  }
+});
+
+app.delete("/api/wip-reviews/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query("DELETE FROM wip_reviews WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "WIP review not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error deleting WIP review:", err);
+    res.status(500).json({ error: "Failed to delete WIP review" });
+  }
+});
+
 // --- Start Server ---
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

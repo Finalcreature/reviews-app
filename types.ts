@@ -15,3 +15,11 @@ export interface GameSummary {
   game_name: string;
   rating: number;
 }
+
+export interface WipReview {
+  id: string;
+  gameName: string;
+  remarks: string;
+  createdAt: string; // ISO date
+  updatedAt: string; // ISO date
+}

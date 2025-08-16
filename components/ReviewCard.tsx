@@ -55,7 +55,10 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
   const [copiedGameName, setCopiedGameName] = useState(false);
 
   const formatReviewText = (text: string) => {
-    const paragraphs = text.split("\n").map((p) => p.trim()).filter(Boolean);
+    const paragraphs = text
+      .split("\n")
+      .map((p) => p.trim())
+      .filter(Boolean);
     return paragraphs.map((paragraph, index) => {
       if (index === 0) {
         return (
@@ -68,7 +71,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
               title={copiedFirst ? "Copied!" : "Copy first paragraph"}
             >
               {copiedFirst ? (
-                <span className="text-xs font-semibold text-green-400">Copied</span>
+                <span className="text-xs font-semibold text-green-400">
+                  Copied
+                </span>
               ) : (
                 <CopyIcon className="h-4 w-4" />
               )}
@@ -88,7 +93,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
               title={copiedBetween ? "Copied!" : "Copy between paragraphs"}
             >
               {copiedBetween ? (
-                <span className="text-xs font-semibold text-green-400">Copied</span>
+                <span className="text-xs font-semibold text-green-400">
+                  Copied
+                </span>
               ) : (
                 <CopyIcon className="h-4 w-4" />
               )}
@@ -112,7 +119,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
               title={copiedLast ? "Copied!" : "Copy last paragraph"}
             >
               {copiedLast ? (
-                <span className="text-xs font-semibold text-green-400">Copied</span>
+                <span className="text-xs font-semibold text-green-400">
+                  Copied
+                </span>
               ) : (
                 <CopyIcon className="h-4 w-4" />
               )}
@@ -129,17 +138,26 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
   };
 
   const getFirstParagraph = (text: string) => {
-    const paragraphs = text.split("\n").map((p) => p.trim()).filter(Boolean);
+    const paragraphs = text
+      .split("\n")
+      .map((p) => p.trim())
+      .filter(Boolean);
     return paragraphs.length > 0 ? paragraphs[0] : "";
   };
 
   const getLastParagraph = (text: string) => {
-    const paragraphs = text.split("\n").map((p) => p.trim()).filter(Boolean);
+    const paragraphs = text
+      .split("\n")
+      .map((p) => p.trim())
+      .filter(Boolean);
     return paragraphs.length > 0 ? paragraphs[paragraphs.length - 1] : "";
   };
 
   const getBetweenParagraphs = (text: string) => {
-    const paragraphs = text.split("\n").map((p) => p.trim()).filter(Boolean);
+    const paragraphs = text
+      .split("\n")
+      .map((p) => p.trim())
+      .filter(Boolean);
     if (paragraphs.length < 3) return "";
     // paragraphs between first and last (exclusive)
     return paragraphs.slice(1, paragraphs.length - 1).join("\n\n");
@@ -337,7 +355,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                 title={copiedGameName ? "Copied!" : "Copy game name"}
               >
                 {copiedGameName ? (
-                  <span className="text-xs font-semibold text-green-400">Copied</span>
+                  <span className="text-xs font-semibold text-green-400">
+                    Copied
+                  </span>
                 ) : (
                   <CopyIcon className="h-4 w-4" />
                 )}
@@ -352,7 +372,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                 title={copiedTitle ? "Copied!" : "Copy title"}
               >
                 {copiedTitle ? (
-                  <span className="text-xs font-semibold text-green-400">Copied</span>
+                  <span className="text-xs font-semibold text-green-400">
+                    Copied
+                  </span>
                 ) : (
                   <CopyIcon className="h-4 w-4" />
                 )}
@@ -455,7 +477,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                 title={copiedPositive ? "Copied!" : "Copy positive points"}
               >
                 {copiedPositive ? (
-                  <span className="text-xs font-semibold text-green-400">Copied</span>
+                  <span className="text-xs font-semibold text-green-400">
+                    Copied
+                  </span>
                 ) : (
                   <CopyIcon className="h-4 w-4" />
                 )}
@@ -480,7 +504,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                 title={copiedNegative ? "Copied!" : "Copy negative points"}
               >
                 {copiedNegative ? (
-                  <span className="text-xs font-semibold text-green-400">Copied</span>
+                  <span className="text-xs font-semibold text-green-400">
+                    Copied
+                  </span>
                 ) : (
                   <CopyIcon className="h-4 w-4" />
                 )}
