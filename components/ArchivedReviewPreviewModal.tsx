@@ -35,7 +35,9 @@ export const ArchivedReviewPreviewModal: React.FC<
 
   return (
     <div
-      onClick={onClose}
+      onClick={() => {
+        if (!isEditing) onClose();
+      }}
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4"
     >
       <div
