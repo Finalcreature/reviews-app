@@ -26,37 +26,65 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
   }
 
   // Helper: Parse the special review format into the required JSON structure
-  function parseSpecialReviewFormat(
-    text: string,
-    gameName: string,
-    rating: number
-  ) {
-    const lines = text.split(/\r?\n/);
-    const title = lines[0].trim();
+  // New behavior: extract gameName (line 1) and rating (line 2), title on line 3
+  function parseSpecialReviewFormat(text: string) {
+    const rawLines = text.split(/\r?\n/);
+    const trimmed = rawLines.map((l) => l.trim());
+
+    // Extract first three non-empty header lines (gameName, rating, title)
+    const headerLines: string[] = [];
+    let headerEndIndex = -1;
+    for (let i = 0; i < trimmed.length && headerLines.length < 3; i++) {
+      if (trimmed[i].length === 0) continue; // skip empty lines only for headers
+      headerLines.push(trimmed[i]);
+      headerEndIndex = i;
+    }
+
+    if (headerLines.length < 3)
+      throw new Error(
+        "Special format requires game name, rating, and title on the first non-empty lines"
+      );
+
+    const gameName = headerLines[0];
+    const ratingRaw = headerLines[1];
+    const title = headerLines[2];
+
+    const rating = parseInt(ratingRaw, 10);
+    if (Number.isNaN(rating) || rating < 1 || rating > 10) {
+      throw new Error(
+        "Rating must be an integer between 1 and 10 on the second line"
+      );
+    }
+
+    // Now process the remainder starting after the headerEndIndex
+    const remainderLines = rawLines
+      .slice(headerEndIndex + 1)
+      .map((l) => l.trim());
+
     let reviewTextLines: string[] = [];
     let positivePoints: string[] = [];
     let negativePoints: string[] = [];
     let section: "review" | "positive" | "negative" = "review";
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.trim() === "Positive Points:") {
+
+    for (let i = 0; i < remainderLines.length; i++) {
+      const line = remainderLines[i];
+      if (line === "Positive Points:") {
         section = "positive";
         continue;
       }
-      if (line.trim() === "Negative Points:") {
+      if (line === "Negative Points:") {
         section = "negative";
         continue;
       }
       if (section === "review") {
         reviewTextLines.push(line);
       } else if (section === "positive") {
-        if (line.trim().length > 0)
-          positivePoints.push(line.trim().replace(/^[-*]\s*/, ""));
+        if (line.length > 0) positivePoints.push(line.replace(/^[-*]\s*/, ""));
       } else if (section === "negative") {
-        if (line.trim().length > 0)
-          negativePoints.push(line.trim().replace(/^[-*]\s*/, ""));
+        if (line.length > 0) negativePoints.push(line.replace(/^[-*]\s*/, ""));
       }
     }
+
     return {
       title,
       game_name: gameName,
@@ -91,22 +119,10 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
     e: React.ChangeEvent<HTMLTextAreaElement>
   ) => {
     const value = e.target.value;
-    // If the input is in the special review format, prompt for game name and rating, then convert
+    // If the input is in the special review format, parse gameName and rating from the text
     if (isSpecialReviewFormat(value)) {
-      let gameName = window.prompt("Enter the game name for this review:");
-      if (!gameName) gameName = "";
-      let ratingStr = window.prompt("Enter the rating for this review (1-10):");
-      let rating = 0;
-      if (ratingStr) {
-        rating = Math.max(1, Math.min(10, parseInt(ratingStr, 10)));
-      }
-      if (!gameName || !rating) {
-        setJsonInput(value);
-        if (error) clearError();
-        return;
-      }
       try {
-        const jsonObj = parseSpecialReviewFormat(value, gameName, rating);
+        const jsonObj = parseSpecialReviewFormat(value);
         const jsonString = JSON.stringify(jsonObj, null, 2);
         setJsonInput(jsonString);
         // Automatically add the review after conversion
@@ -122,8 +138,13 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
           setTagsInput("");
         }
         setIsSubmitting(false);
-      } catch (err) {
+      } catch (err: any) {
+        // parsing failed — keep raw text and surface error if available
         setJsonInput(value);
+        if (err && err.message) {
+          // display quick alert; consumer may also display error prop
+          alert(`Failed to parse special review format: ${err.message}`);
+        }
       }
     } else {
       setJsonInput(value);
