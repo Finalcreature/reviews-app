@@ -40,6 +40,38 @@ app.get("/api/reviews", async (req, res) => {
   }
 });
 
+// Aggregated reviews by rating
+app.get("/api/reviews/by-rating", async (req, res) => {
+  try {
+    // Use archived_reviews as the primary source for dashboard aggregation.
+    // archived_reviews stores a complete JSONB snapshot of every submitted review
+    // and is guaranteed to contain game_name and rating. This ensures the
+    // dashboard shows results even when the normalized `reviews` table is
+    // empty (e.g., imported/archived-only data).
+    const result = await pool.query(
+      `SELECT
+         (review_json->>'rating')::int AS rating,
+         COUNT(*) AS count,
+         json_agg(json_build_object(
+           'id', id,
+           'title', review_json->>'title',
+           'game_name', review_json->>'game_name',
+           'rating', (review_json->>'rating')::int
+         )) AS reviews
+       FROM archived_reviews
+       WHERE review_json ? 'rating' AND review_json->>'rating' IS NOT NULL
+       GROUP BY (review_json->>'rating')::int
+       ORDER BY rating DESC`
+    );
+
+    // Ensure we always return an array of groups
+    res.json(result.rows || []);
+  } catch (err) {
+    console.error("Error fetching reviews by rating:", err);
+    res.status(500).json({ error: "Failed to fetch reviews by rating" });
+  }
+});
+
 app.get("/api/games-summary", async (req, res) => {
   const onlyVisible = req.query.visible === "true";
 
@@ -421,15 +453,13 @@ app.post("/api/wip-reviews", async (req, res) => {
       "INSERT INTO wip_reviews (id, game_name, remarks, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
       [id, gameName, remarks || "", now, now]
     );
-    res
-      .status(201)
-      .json({
-        id,
-        gameName,
-        remarks: remarks || "",
-        createdAt: now.toISOString(),
-        updatedAt: now.toISOString(),
-      });
+    res.status(201).json({
+      id,
+      gameName,
+      remarks: remarks || "",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    });
   } catch (err) {
     console.error("Error creating WIP review:", err);
     res.status(500).json({ error: "Failed to create WIP review" });

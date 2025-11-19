@@ -8,6 +8,7 @@ import DownloadButton from "./components/DownloadButton";
 import { GameSummaryModal } from "./components/GameSummaryModal";
 import { ArchivedReviewPreviewModal } from "./components/ArchivedReviewPreviewModal";
 import { WipReviewModal } from "./components/WipReviewModal";
+import RatingDashboard from "./components/Dashboard/RatingDashboard";
 import { WipReview } from "./types";
 
 const App: React.FC = () => {
@@ -20,6 +21,7 @@ const App: React.FC = () => {
     useState<Review | null>(null);
   const [wipReviews, setWipReviews] = useState<WipReview[]>([]);
   const [isWipModalOpen, setIsWipModalOpen] = useState(false);
+  const [isRatingDashboardOpen, setIsRatingDashboardOpen] = useState(false);
 
   useEffect(() => {
     const loadWip = async () => {
@@ -79,7 +81,11 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateWip = async (id: string, gameName: string, remarks: string) => {
+  const handleUpdateWip = async (
+    id: string,
+    gameName: string,
+    remarks: string
+  ) => {
     try {
       const updated = await api.updateWipReview(id, { gameName, remarks });
       setWipReviews((prev) => prev.map((w) => (w.id === id ? updated : w)));
@@ -188,8 +194,6 @@ const App: React.FC = () => {
     return titleMatch || gameNameMatch || tagMatch;
   });
 
-
-
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
@@ -223,6 +227,31 @@ const App: React.FC = () => {
             title="WIP reviews"
           >
             WIP
+          </button>
+          <button
+            onClick={() => setIsRatingDashboardOpen(true)}
+            className="p-2 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg transition-colors flex-shrink-0"
+            title="View Rating Dashboard"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-white"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 3v18h18"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M7 16V7h3v9H7zM11 16V4h3v12h-3zM15 16v-6h3v6h-3z"
+              />
+            </svg>
           </button>
         </div>
         <header className="flex items-center gap-4 mb-8">
@@ -324,6 +353,10 @@ const App: React.FC = () => {
             onAddWip={handleAddWip}
             onUpdateWip={handleUpdateWip}
             onDeleteWip={handleDeleteWip}
+          />
+          <RatingDashboard
+            isOpen={isRatingDashboardOpen}
+            onClose={() => setIsRatingDashboardOpen(false)}
           />
         </main>
       </div>
