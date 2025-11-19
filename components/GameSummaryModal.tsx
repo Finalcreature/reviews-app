@@ -75,7 +75,9 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
     .filter((summary: GameSummary) =>
       summary.game_name.toLowerCase().includes(searchTerm.toLowerCase())
     )
-    .sort((a: GameSummary, b: GameSummary) => a.game_name.localeCompare(b.game_name));
+    .sort((a: GameSummary, b: GameSummary) =>
+      a.game_name.localeCompare(b.game_name)
+    );
 
   return (
     <div
@@ -94,7 +96,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
             type="text"
             placeholder="Search game name..."
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="mb-2 sm:mb-0 px-3 py-2 border border-slate-600 rounded w-full sm:w-64 bg-slate-900 text-slate-200"
           />
           <button
