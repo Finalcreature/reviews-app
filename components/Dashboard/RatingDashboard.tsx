@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { XCircleIcon } from "../Icons";
+import { XCircleIcon, StarIcon, LogoIcon } from "../Icons";
 import { RatingGroup, getReviewsByRating } from "../../services/api";
 
 interface RatingDashboardProps {
@@ -7,77 +7,33 @@ interface RatingDashboardProps {
   onClose: () => void;
 }
 
-const RatingRow: React.FC<{
-  group: RatingGroup | null;
-  expanded: boolean;
-  onToggle: () => void;
-  query: string;
-}> = ({ group, expanded, onToggle, query }) => {
-  if (!group) return null;
-  const reviews = group.reviews.filter(
-    (r) =>
-      r.title.toLowerCase().includes(query) ||
-      r.game_name.toLowerCase().includes(query)
-  );
-  const maxCount = 50; // used for simple bar scaling
-  const widthPercent = Math.min(100, (Number(group.count) / maxCount) * 100);
-
-  return (
-    <div className="mb-3">
-      <div className="flex items-center justify-between bg-slate-800 p-3 rounded">
-        <div className="flex items-center gap-3">
-          <div className="text-lg font-semibold w-10 text-center">
-            {group.rating}
-          </div>
-          <div className="text-sm text-slate-300">
-            {group.count} review{Number(group.count) !== 1 ? "s" : ""}
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="h-3 w-48 bg-slate-700 rounded overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
-              style={{ width: `${widthPercent}%` }}
-            />
-          </div>
-          <button
-            onClick={onToggle}
-            className="text-sm px-3 py-1 bg-slate-700 rounded hover:bg-slate-600"
-          >
-            {expanded ? "Hide" : "Show"}
-          </button>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="mt-2 space-y-2">
-          {reviews.length > 0 ? (
-            reviews.map((r) => (
-              <div
-                key={r.id}
-                className="p-3 bg-slate-900 rounded border border-slate-700"
-              >
-                <div className="font-semibold">{r.title}</div>
-                <div className="text-sm text-slate-400">{r.game_name}</div>
-              </div>
-            ))
-          ) : (
-            <div className="text-sm text-slate-400 p-3">No matching items</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+const SCORE_META: {
+  score: number;
+  label: string;
+  color: string;
+}[] = [
+  { score: 10, label: "Masterpiece", color: "bg-cyan-500" },
+  { score: 9, label: "Amazing", color: "bg-cyan-600" },
+  { score: 8, label: "Great", color: "bg-blue-500" },
+  { score: 7, label: "Good", color: "bg-blue-600" },
+  { score: 6, label: "Decent", color: "bg-indigo-500" },
+  { score: 5, label: "Average", color: "bg-indigo-600" },
+  { score: 4, label: "Weak", color: "bg-purple-500" },
+  { score: 3, label: "Poor", color: "bg-pink-600" },
+  { score: 2, label: "Bad", color: "bg-red-500" },
+  { score: 1, label: "Awful", color: "bg-red-600" },
+];
 
 export const RatingDashboard: React.FC<RatingDashboardProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [groups, setGroups] = useState<RatingGroup[]>([]);
-  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [groups, setGroups] = useState<Record<number, RatingGroup>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [query, setQuery] = useState("");
+  const [hovered, setHovered] = useState<null | {
+    score: number;
+    count: number;
+  }>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -85,14 +41,16 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
       try {
         setIsLoading(true);
         const data = await getReviewsByRating();
-        // normalize: ensure we have entries for 1..10
-        const map = new Map<number, RatingGroup>();
-        data.forEach((g) => map.set(Number(g.rating), g));
-        const full: RatingGroup[] = [];
-        for (let r = 10; r >= 1; r--) {
-          full.push(map.get(r) || { rating: r, count: 0, reviews: [] });
-        }
-        setGroups(full);
+        const map: Record<number, RatingGroup> = {};
+        data.forEach((g) => {
+          const r = Number(g.rating);
+          map[r] = {
+            rating: r,
+            count: Number(g.count),
+            reviews: g.reviews || [],
+          } as RatingGroup;
+        });
+        setGroups(map);
       } catch (err) {
         console.error("Failed to load rating groups", err);
       } finally {
@@ -102,14 +60,28 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
     load();
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setQuery("");
-      setExpanded({});
-    }
-  }, [isOpen]);
-
   if (!isOpen) return null;
+
+  // Build ratingsData from SCORE_META and groups
+  const ratingsData = SCORE_META.map((m) => ({
+    score: m.score,
+    count: groups[m.score]?.count || 0,
+    label: m.label,
+    color: m.color,
+    reviews: groups[m.score]?.reviews || [],
+  }));
+
+  const totalReviews = ratingsData.reduce((acc, curr) => acc + curr.count, 0);
+  const maxCount = ratingsData.reduce(
+    (acc, curr) => Math.max(acc, curr.count),
+    1
+  );
+  const weightedSum = ratingsData.reduce(
+    (acc, curr) => acc + curr.score * curr.count,
+    0
+  );
+  const averageScore =
+    totalReviews > 0 ? (weightedSum / totalReviews).toFixed(1) : "0.0";
 
   return (
     <div
@@ -122,21 +94,20 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative max-w-6xl w-full bg-slate-900 rounded-lg shadow-xl max-h-[92vh] overflow-auto">
-        <div className="flex items-center justify-between p-4 border-b border-slate-800">
+      <div className="relative w-full max-w-4xl bg-slate-900 rounded-xl p-8 text-slate-200 shadow-2xl border border-slate-800">
+        {isLoading && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 rounded-xl">
+            <div className="text-slate-300">Loading...</div>
+          </div>
+        )}
+        <div className="flex items-start justify-between mb-6">
           <div>
-            <h3 className="text-lg font-semibold">Rating Dashboard</h3>
+            <h3 className="text-2xl font-semibold">Rating Dashboard</h3>
             <p className="text-sm text-slate-400">
               Distribution of saved reviews by rating
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value.toLowerCase())}
-              placeholder="Filter titles or games..."
-              className="bg-slate-800 text-sm px-3 py-1 rounded border border-slate-700"
-            />
             <button
               onClick={onClose}
               className="p-2 rounded-full hover:bg-slate-800"
@@ -147,27 +118,112 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
           </div>
         </div>
 
-        <div className="p-4">
-          {isLoading ? (
-            <div className="text-slate-400">Loading...</div>
-          ) : (
-            <div className="space-y-4">
-              {groups.map((g) => (
-                <RatingRow
-                  key={g.rating}
-                  group={g}
-                  expanded={!!expanded[g.rating]}
-                  onToggle={() =>
-                    setExpanded((prev) => ({
-                      ...prev,
-                      [g.rating]: !prev[g.rating],
-                    }))
-                  }
-                  query={query}
-                />
-              ))}
+        {/* KPI header */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 flex items-center gap-4">
+            <div className="p-3 bg-slate-900 rounded-full text-cyan-400">
+              <LogoIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-slate-400 text-xs uppercase font-semibold">
+                Total Rated
+              </div>
+              <div className="text-2xl font-bold">{totalReviews}</div>
+            </div>
+          </div>
+
+          <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 flex items-center gap-4">
+            <div className="p-3 bg-slate-900 rounded-full text-blue-400">
+              <StarIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-slate-400 text-xs uppercase font-semibold">
+                Mean Score
+              </div>
+              <div className="text-2xl font-bold">
+                {averageScore}
+                <span className="text-sm text-slate-500">/10</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 flex items-center gap-4">
+            <div className="p-3 bg-slate-900 rounded-full text-indigo-400">
+              <StarIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-slate-400 text-xs uppercase font-semibold">
+                Masterpieces
+              </div>
+              <div className="text-2xl font-bold">
+                {ratingsData.find((r) => r.score === 10)?.count || 0}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4 flex items-center justify-between">
+          <h4 className="text-lg font-semibold flex items-center gap-2">
+            Distribution Curve
+          </h4>
+          {hovered && (
+            <div className="text-cyan-400 text-sm font-mono">
+              {hovered.count} games rated {hovered.score}/10
             </div>
           )}
+        </div>
+
+        <div className="h-64 flex items-end justify-between gap-2 md:gap-4 pt-6 pb-2 px-2 bg-slate-800/50 rounded-lg border border-slate-800 relative">
+          <div className="absolute inset-0 flex flex-col justify-between px-4 py-2 pointer-events-none opacity-10">
+            <div className="w-full h-px bg-white" />
+            <div className="w-full h-px bg-white" />
+            <div className="w-full h-px bg-white" />
+            <div className="w-full h-px bg-white" />
+          </div>
+
+          {[...ratingsData].reverse().map((item) => {
+            const heightPercent =
+              maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+            return (
+              <div
+                key={item.score}
+                className="flex-1 flex flex-col items-center justify-end px-1"
+              >
+                <div
+                  onMouseEnter={() =>
+                    setHovered({ score: item.score, count: item.count })
+                  }
+                  onMouseLeave={() => setHovered(null)}
+                  className={`w-full rounded-t-md relative transition-all duration-300 ease-out ${item.color}`}
+                  style={{
+                    height: `${Math.max(4, heightPercent)}%`,
+                    minHeight: 4,
+                  }}
+                  title={`${item.count} reviews`}
+                >
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 border border-slate-700">
+                    {item.count} Reviews
+                  </div>
+                </div>
+                <div className="mt-3 text-center">
+                  <div
+                    className={`font-bold text-lg ${
+                      hovered?.score === item.score
+                        ? "text-white"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {item.score}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-between text-xs text-slate-600 mt-3 px-2">
+          <span>Low Quality</span>
+          <span>High Quality</span>
         </div>
       </div>
     </div>
