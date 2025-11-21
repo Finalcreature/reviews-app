@@ -7,6 +7,17 @@
 
 import { Review, NewReviewData, GameSummary } from "../types";
 
+export interface RatingGroup {
+  rating: number;
+  count: number;
+  reviews: {
+    id: string;
+    title: string;
+    game_name: string;
+    rating: number;
+  }[];
+}
+
 const API_BASE_URL = "http://localhost:3001"; // URL of your backend server
 
 export const updateReviewTags = async (
@@ -113,6 +124,15 @@ export const getGameSummaries = async (
   if (!response.ok) {
     throw new Error("Failed to fetch game summaries from server");
   }
+  return response.json();
+};
+
+/**
+ * Fetch aggregated reviews grouped by rating from backend
+ */
+export const getReviewsByRating = async (): Promise<RatingGroup[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/reviews/by-rating`);
+  if (!response.ok) throw new Error("Failed to fetch reviews by rating");
   return response.json();
 };
 
