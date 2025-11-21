@@ -34,6 +34,7 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
     score: number;
     count: number;
   }>(null);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -74,8 +75,18 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
   const totalReviews = ratingsData.reduce((acc, curr) => acc + curr.count, 0);
   const maxCount = ratingsData.reduce(
     (acc, curr) => Math.max(acc, curr.count),
-    1
+    0
   );
+
+  // Y axis step (fixed 10) and yMax rounded up to the nearest step
+  const STEP = 10;
+  const yMax = Math.max(STEP, Math.ceil(maxCount / STEP) * STEP);
+  const ticks = Array.from({ length: Math.floor(yMax / STEP) + 1 }, (_, i) =>
+    Math.floor(yMax - i * STEP)
+  );
+
+  // per-score heights computed inline during render
+
   const weightedSum = ratingsData.reduce(
     (acc, curr) => acc + curr.score * curr.count,
     0
@@ -138,7 +149,7 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
             </div>
             <div>
               <div className="text-slate-400 text-xs uppercase font-semibold">
-                Mean Score
+                Average Rating
               </div>
               <div className="text-2xl font-bold">
                 {averageScore}
@@ -153,7 +164,7 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
             </div>
             <div>
               <div className="text-slate-400 text-xs uppercase font-semibold">
-                Masterpieces
+                Top Rated
               </div>
               <div className="text-2xl font-bold">
                 {ratingsData.find((r) => r.score === 10)?.count || 0}
@@ -164,7 +175,7 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
 
         <div className="mb-4 flex items-center justify-between">
           <h4 className="text-lg font-semibold flex items-center gap-2">
-            Distribution Curve
+            Rating Distribution Curve
           </h4>
           {hovered && (
             <div className="text-cyan-400 text-sm font-mono">
@@ -173,58 +184,126 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
           )}
         </div>
 
-        <div className="h-64 flex items-end justify-between gap-2 md:gap-4 pt-6 pb-2 px-2 bg-slate-800/50 rounded-lg border border-slate-800 relative">
-          <div className="absolute inset-0 flex flex-col justify-between px-4 py-2 pointer-events-none opacity-10">
-            <div className="w-full h-px bg-white" />
-            <div className="w-full h-px bg-white" />
-            <div className="w-full h-px bg-white" />
-            <div className="w-full h-px bg-white" />
+        <div className="h-64 pt-6 pb-6 px-2 bg-slate-800/50 rounded-lg border border-slate-800 relative">
+          {/* Axis + grid overlay */}
+          <div
+            style={{ left: 48 }}
+            className="absolute top-6 bottom-6 right-2 pointer-events-none"
+          >
+            {ticks.map((tick) => {
+              const topPct = (1 - tick / yMax) * 100;
+              return (
+                <div
+                  key={tick}
+                  style={{ top: `${topPct}%` }}
+                  className="absolute left-0 right-0 h-px bg-white/10"
+                />
+              );
+            })}
           </div>
 
-          {[...ratingsData].reverse().map((item) => {
-            const heightPercent =
-              maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-            return (
+          {/* Left Y axis labels */}
+          <div className="absolute left-0 top-6 bottom-6 w-12 pointer-events-none flex flex-col justify-between">
+            {ticks.map((tick, i) => (
               <div
-                key={item.score}
-                className="flex-1 flex flex-col items-center justify-end px-1"
+                key={`label-${tick}-${i}`}
+                className="text-xs text-slate-400"
               >
-                <div
-                  onMouseEnter={() =>
-                    setHovered({ score: item.score, count: item.count })
-                  }
-                  onMouseLeave={() => setHovered(null)}
-                  className={`w-full rounded-t-md relative transition-all duration-300 ease-out ${item.color}`}
-                  style={{
-                    height: `${Math.max(4, heightPercent)}%`,
-                    minHeight: 4,
-                  }}
-                  title={`${item.count} reviews`}
-                >
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 border border-slate-700">
-                    {item.count} Reviews
-                  </div>
-                </div>
-                <div className="mt-3 text-center">
-                  <div
-                    className={`font-bold text-lg ${
-                      hovered?.score === item.score
-                        ? "text-white"
-                        : "text-slate-400"
-                    }`}
-                  >
-                    {item.score}
-                  </div>
-                </div>
+                {/* show label when divisible by 20 or always show the bottom (0) tick */}
+                {tick % (STEP * 2) === 0 || i === ticks.length - 1 ? tick : ""}
               </div>
-            );
-          })}
+            ))}
+          </div>
+
+          {/* Bars area aligned to same top/bottom as grid */}
+          <div className="absolute left-12 right-2 top-6 bottom-6 flex items-end justify-between gap-2 md:gap-4">
+            {[...ratingsData].reverse().map((item) => {
+              const heightPercent = yMax > 0 ? (item.count / yMax) * 100 : 0;
+              return (
+                <div
+                  key={item.score}
+                  className="flex-1 flex flex-col items-center justify-end px-1 h-full"
+                >
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedRating(item.score)}
+                    onMouseEnter={() =>
+                      setHovered({ score: item.score, count: item.count })
+                    }
+                    onMouseLeave={() => setHovered(null)}
+                    className={`w-full rounded-t-md relative transition-all duration-300 ease-out group cursor-pointer ${item.color}`}
+                    style={{
+                      height: `${heightPercent}%`,
+                      minHeight: 2,
+                    }}
+                    title={`${item.count} reviews`}
+                  >
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 border border-slate-700">
+                      {item.count} Reviews
+                    </div>
+                    {/* numeric label removed to keep bars clean */}
+                  </div>
+                  {/* score label moved below chart to avoid affecting bar layout */}
+                </div>
+              );
+            })}
+          </div>
+          {/* X-axis labels were rendered here previously; moved below chart for proper layout */}
         </div>
 
-        <div className="flex justify-between text-xs text-slate-600 mt-3 px-2">
-          <span>Low Quality</span>
-          <span>High Quality</span>
+        {/* X-axis labels (scores) - placed below the chart so they don't affect bar layout */}
+        <div className="mt-3 pl-12 pr-2 flex items-center justify-between gap-2 md:gap-4">
+          {[...ratingsData].reverse().map((item) => (
+            <div
+              key={`xlabel-${item.score}`}
+              className="w-full text-center text-lg font-bold text-slate-400"
+            >
+              {item.score}
+            </div>
+          ))}
         </div>
+
+        {/* Drilldown modal for selected rating */}
+        {selectedRating !== null && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setSelectedRating(null)}
+            />
+            <div className="relative bg-slate-900 rounded-lg p-6 w-96 border border-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-lg font-semibold">
+                  Games rated {selectedRating}/10
+                </div>
+                <button
+                  onClick={() => setSelectedRating(null)}
+                  className="p-2 rounded hover:bg-slate-800"
+                >
+                  <XCircleIcon className="h-5 w-5 text-slate-400" />
+                </button>
+              </div>
+              <div className="max-h-64 overflow-auto">
+                <ul className="space-y-2">
+                  {Array.from(
+                    new Set(
+                      (
+                        ratingsData.find((r) => r.score === selectedRating)
+                          ?.reviews || []
+                      ).map(
+                        (rv: any) => rv.game_name || rv.title || "(unknown)"
+                      )
+                    )
+                  ).map((name) => (
+                    <li key={name} className="text-sm text-slate-200">
+                      {name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
