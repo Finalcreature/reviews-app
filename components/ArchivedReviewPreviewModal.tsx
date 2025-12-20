@@ -6,13 +6,13 @@ interface ArchivedReviewPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   archivedReview: Review | null;
-  onUpdateReview: (id: string, updatedReview: Review) => void;
-  onUpdateTags: (id: string, tags: string[]) => void;
+  onUpdateTags?: (id: string, tags: string[]) => void;
+  onUpdateReview?: (id: string, updatedReview: Review) => void;
 }
 
 export const ArchivedReviewPreviewModal: React.FC<
   ArchivedReviewPreviewModalProps
-> = ({ isOpen, onClose, archivedReview }) => {
+> = ({ isOpen, onClose, archivedReview, onUpdateReview }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editableReview, setEditableReview] = useState<Review | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">(
@@ -42,7 +42,7 @@ export const ArchivedReviewPreviewModal: React.FC<
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-slate-800 rounded-lg shadow-xl max-w-[82rem] w-full max-h-[90vh] overflow-y-auto p-6 relative"
+        className="bg-slate-800 rounded-lg shadow-xl max-w-[1200px] w-11/12 md:w-3/4 lg:w-2/3 max-h-[95vh] overflow-y-auto p-8 relative"
       >
         <button
           onClick={onClose}
@@ -136,6 +136,66 @@ export const ArchivedReviewPreviewModal: React.FC<
         </div>
 
         <div className="mb-4">
+          <strong>Positive Points:</strong>
+          <div className="mt-2">
+            {isEditing ? (
+              <textarea
+                className="w-full mt-2 bg-slate-700 text-white p-2 rounded h-28"
+                placeholder="One point per line"
+                value={(editableReview.positive_points || []).join("\n")}
+                onChange={(e) =>
+                  handleFieldChange(
+                    "positive_points",
+                    e.target.value
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  )
+                }
+              />
+            ) : editableReview.positive_points?.length ? (
+              <ul className="list-disc pl-5 text-slate-300">
+                {editableReview.positive_points.map((p, idx) => (
+                  <li key={idx}>{p}</li>
+                ))}
+              </ul>
+            ) : (
+              <span className="text-slate-500 text-xs">No positive points</span>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <strong>Negative Points:</strong>
+          <div className="mt-2">
+            {isEditing ? (
+              <textarea
+                className="w-full mt-2 bg-slate-700 text-white p-2 rounded h-28"
+                placeholder="One point per line"
+                value={(editableReview.negative_points || []).join("\n")}
+                onChange={(e) =>
+                  handleFieldChange(
+                    "negative_points",
+                    e.target.value
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  )
+                }
+              />
+            ) : editableReview.negative_points?.length ? (
+              <ul className="list-disc pl-5 text-slate-300">
+                {editableReview.negative_points.map((p, idx) => (
+                  <li key={idx}>{p}</li>
+                ))}
+              </ul>
+            ) : (
+              <span className="text-slate-500 text-xs">No negative points</span>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-4">
           <strong>Rating:</strong>{" "}
           {isEditing ? (
             <input
@@ -165,6 +225,8 @@ export const ArchivedReviewPreviewModal: React.FC<
                       editableReview
                     );
                     setSaveStatus("success");
+                    if (onUpdateReview)
+                      onUpdateReview(editableReview.id, editableReview);
                     setIsEditing(false);
                   } catch (err) {
                     console.error(err);
