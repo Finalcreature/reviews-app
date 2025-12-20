@@ -5,7 +5,12 @@ export interface Review {
   review_text: string;
   rating: number;
   /** Optional genre (e.g., "RPG", "Action") */
+  /** denormalized text fallback */
   genre?: string;
+  /** normalized genre id (if migrated) */
+  genreId?: string;
+  /** resolved category name from joined tables */
+  categoryName?: string;
   positive_points: string[];
   negative_points: string[];
   tags?: string[];
@@ -26,4 +31,16 @@ export interface WipReview {
   remarks: string;
   createdAt: string; // ISO date
   updatedAt: string; // ISO date
+}
+
+export interface Category {
+  id: string;
+  name: string;
+}
+
+export interface Genre {
+  id: string;
+  name: string;
+  categoryId?: string | null;
+  categoryName?: string | null;
 }

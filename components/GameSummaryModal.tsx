@@ -62,10 +62,11 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
   // Compute filtered and sorted summaries inside the component
   const filteredSummaries: GameSummary[] = summaries
     .filter((summary: GameSummary) =>
-      summary.game_name.toLowerCase().includes(searchTerm.toLowerCase())
+      // Defensive: some summaries may have null/undefined game_name from backend
+      (summary.game_name ?? "").toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a: GameSummary, b: GameSummary) =>
-      a.game_name.localeCompare(b.game_name)
+      (a.game_name ?? "").localeCompare(b.game_name ?? "")
     );
 
   return (

@@ -15,7 +15,15 @@ interface ReviewCardProps {
   review: Review;
   onDelete: (id: string) => void;
   onUpdateTags: (id: string, newTags: string[]) => void;
-  onUpdateGenre?: (id: string, genre?: string) => Promise<any> | void;
+  onUpdateGenre?: (
+    id: string,
+    opts: {
+      genreId?: string;
+      genreName?: string;
+      categoryId?: string;
+      categoryName?: string;
+    }
+  ) => Promise<any> | void;
 }
 
 const StarRating: React.FC<{ rating: number }> = ({ rating }) => {
@@ -38,7 +46,12 @@ const StarRating: React.FC<{ rating: number }> = ({ rating }) => {
 };
 
 import Typeahead from "./Typeahead";
-import { getGenres } from "../services/api";
+import {
+  getGenres,
+  getCategories,
+  createCategory,
+  createGenre,
+} from "../services/api";
 
 export const ReviewCard: React.FC<ReviewCardProps> = ({
   review,
@@ -55,6 +68,11 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
   const [editGenreInput, setEditGenreInput] = useState<string>(
     review.genre || ""
   );
+  const [showCategoryPrompt, setShowCategoryPrompt] = useState(false);
+  const [selectedGenreToCreate, setSelectedGenreToCreate] = useState<
+    string | null
+  >(null);
+  const [categoryInput, setCategoryInput] = useState<string>("");
   const [copiedFirst, setCopiedFirst] = useState(false);
   const [copiedLast, setCopiedLast] = useState(false);
   const [copiedBetween, setCopiedBetween] = useState(false);
@@ -351,21 +369,71 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
   };
 
   const handleSaveGenre = async () => {
-    const newGenre = editGenreInput.trim() || undefined;
-    if (onUpdateGenre) {
-      try {
-        await onUpdateGenre(review.id, newGenre);
-        // refresh genre cache so other typeaheads see the new value
-        try {
-          await getGenres(true);
-        } catch (e) {
-          /* ignore cache refresh errors */
-        }
-      } catch (err) {
-        console.error("Failed to update genre:", err);
-      }
+    const input = editGenreInput.trim();
+    if (!input) {
+      // clear genre
+      if (onUpdateGenre) await onUpdateGenre(review.id, { genreId: undefined });
+      setIsEditingGenre(false);
+      return;
     }
-    setIsEditingGenre(false);
+
+    // try to match existing genre by name
+    try {
+      const genres = await getGenres();
+      const match = genres.find(
+        (g) => g.name.toLowerCase() === input.toLowerCase()
+      );
+      if (match) {
+        if (onUpdateGenre)
+          await onUpdateGenre(review.id, { genreId: match.id });
+        await getGenres(true);
+        setIsEditingGenre(false);
+        return;
+      }
+
+      // new genre: prompt for category
+      setSelectedGenreToCreate(input);
+      // ensure any open dropdowns close first, then show prompt
+      setShowCategoryPrompt(false);
+      setTimeout(() => setShowCategoryPrompt(true), 0);
+    } catch (err) {
+      console.error("Failed to save genre:", err);
+    }
+  };
+
+  const handleCreateGenreWithCategory = async (categorySel: any) => {
+    if (!selectedGenreToCreate) return;
+    try {
+      if (!categorySel) {
+        // no category chosen, create genre without category
+        const g = await createGenre({ name: selectedGenreToCreate });
+        if (onUpdateGenre) await onUpdateGenre(review.id, { genreId: g.id });
+      } else if (typeof categorySel === "string") {
+        const c = await createCategory(categorySel);
+        const g = await createGenre({
+          name: selectedGenreToCreate,
+          categoryId: c.id,
+        });
+        if (onUpdateGenre) await onUpdateGenre(review.id, { genreId: g.id });
+      } else if (categorySel && categorySel.id) {
+        const g = await createGenre({
+          name: selectedGenreToCreate,
+          categoryId: categorySel.id,
+        });
+        if (onUpdateGenre) await onUpdateGenre(review.id, { genreId: g.id });
+      }
+      // refresh genre cache
+      try {
+        await getGenres(true);
+      } catch (e) {
+        /* ignore */
+      }
+      setShowCategoryPrompt(false);
+      setSelectedGenreToCreate(null);
+      setIsEditingGenre(false);
+    } catch (err) {
+      console.error("Failed to create genre and category:", err);
+    }
   };
 
   return (
@@ -373,7 +441,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
       <div className="p-4 sm:p-6">
         <div className="flex justify-between items-start gap-4">
           <div className="flex-grow">
-            <p className="text-sm font-semibold text-blue-400 tracking-wider uppercase flex items-center gap-2">
+            <div className="text-sm font-semibold text-blue-400 tracking-wider uppercase flex items-center gap-2">
               <span>{review.game_name}</span>
               <div className="ml-2 inline-flex items-center gap-2">
                 {!isEditingGenre ? (
@@ -397,33 +465,114 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                     )}
                   </>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <div style={{ minWidth: 160 }} className="w-[160px]">
-                      <Typeahead
-                        value={editGenreInput}
-                        onChange={(v) => setEditGenreInput(v)}
-                        fetchSuggestions={async () => getGenres()}
-                        onSelect={(v) => setEditGenreInput(v)}
-                        allowAdd={true}
-                        placeholder="Genre (e.g., RPG)"
-                      />
+                  <>
+                    <div className="flex items-center gap-2">
+                      <div style={{ minWidth: 160 }} className="w-[160px]">
+                        <Typeahead
+                          value={editGenreInput}
+                          onChange={(v) => setEditGenreInput(v)}
+                          fetchSuggestions={async () => await getGenres()}
+                          onSelect={async (v) => {
+                            if (typeof v === "string") {
+                              // free text -> populate input and prompt for category
+                              setEditGenreInput(v);
+                              setSelectedGenreToCreate(v);
+                              // ensure dropdown closes first, then show the prompt to avoid the
+                              // suggestion list staying visible and blocking the modal
+                              setShowCategoryPrompt(false);
+                              setTimeout(() => setShowCategoryPrompt(true), 0);
+                            } else if (v && (v as any).id) {
+                              // selected existing genre
+                              if (onUpdateGenre)
+                                await onUpdateGenre(review.id, {
+                                  genreId: (v as any).id,
+                                });
+                              try {
+                                await getGenres(true);
+                              } catch (e) {}
+                              setIsEditingGenre(false);
+                            }
+                          }}
+                          suggestionToString={(s) =>
+                            typeof s === "string" ? s : (s as any).name
+                          }
+                          allowAdd={true}
+                          placeholder="Genre (e.g., RPG)"
+                        />
+                      </div>
+                      <button
+                        className="ml-2 px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+                        onClick={handleSaveGenre}
+                      >
+                        Save
+                      </button>
+                      <button
+                        className="ml-1 px-2 py-1 text-xs rounded bg-slate-600 text-white hover:bg-slate-700"
+                        onClick={() => {
+                          setIsEditingGenre(false);
+                          setEditGenreInput(review.genre || "");
+                        }}
+                      >
+                        Cancel
+                      </button>
                     </div>
-                    <button
-                      className="ml-2 px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
-                      onClick={handleSaveGenre}
-                    >
-                      Save
-                    </button>
-                    <button
-                      className="ml-1 px-2 py-1 text-xs rounded bg-slate-600 text-white hover:bg-slate-700"
-                      onClick={() => {
-                        setIsEditingGenre(false);
-                        setEditGenreInput(review.genre || "");
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                    {showCategoryPrompt && selectedGenreToCreate && (
+                      // Modal: force the user to pick or skip a category for the new genre
+                      <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-60">
+                        <div className="bg-slate-800 rounded-lg p-6 w-[520px] max-w-[95%]">
+                          <h4 className="text-lg font-semibold text-white mb-3">
+                            New genre "{selectedGenreToCreate}" — select a
+                            category
+                          </h4>
+                          <div className="mb-3">
+                            <Typeahead
+                              value={categoryInput}
+                              onChange={(v) => setCategoryInput(v)}
+                              fetchSuggestions={async (q) =>
+                                (await getCategories()).filter((c) =>
+                                  (c.name || "")
+                                    .toLowerCase()
+                                    .includes((q || "").toLowerCase())
+                                )
+                              }
+                              onSelect={(v) =>
+                                setCategoryInput(
+                                  typeof v === "string" ? v : (v as any).name
+                                )
+                              }
+                              suggestionToString={(s) =>
+                                typeof s === "string" ? s : (s as any).name
+                              }
+                              allowAdd={true}
+                              autoFocus={true}
+                              placeholder="Select or add a category"
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              className="px-3 py-1 rounded bg-slate-600 text-white"
+                              onClick={() => {
+                                // Skip adding a category: create genre without category
+                                handleCreateGenreWithCategory(undefined);
+                              }}
+                            >
+                              Skip
+                            </button>
+                            <button
+                              className="px-3 py-1 rounded bg-blue-600 text-white"
+                              onClick={() => {
+                                handleCreateGenreWithCategory(
+                                  categoryInput || undefined
+                                );
+                              }}
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               <button
@@ -440,7 +589,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                   <CopyIcon className="h-4 w-4" />
                 )}
               </button>
-            </p>
+            </div>
             <h3 className="text-xl sm:text-2xl font-bold text-white mt-1 flex items-center gap-2">
               <span>{review.title}</span>
               <button

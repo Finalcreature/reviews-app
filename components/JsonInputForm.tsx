@@ -3,7 +3,11 @@ import Typeahead from "./Typeahead";
 import { getGenres } from "../services/api";
 
 interface JsonInputFormProps {
-  onAddReview: (jsonString: string, tags: string[]) => Promise<boolean>;
+  onAddReview: (
+    jsonString: string,
+    tags: string[],
+    genre?: string
+  ) => Promise<boolean>;
   error: string | null;
   clearError: () => void;
 }
@@ -122,7 +126,7 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
       // not JSON - leave as-is (special format handled separately)
     }
 
-    const success = await onAddReview(payload, tags);
+    const success = await onAddReview(payload, tags, genre);
 
     if (success) {
       setJsonInput("");
@@ -230,10 +234,15 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
               onChange={(v) => setGenreInput(v)}
               fetchSuggestions={async (q) =>
                 (await getGenres()).filter((g) =>
-                  g.toLowerCase().includes((q || "").toLowerCase())
+                  g.name.toLowerCase().includes((q || "").toLowerCase())
                 )
               }
-              onSelect={(v) => setGenreInput(v)}
+              onSelect={(v) =>
+                setGenreInput(typeof v === "string" ? v : (v as any).name)
+              }
+              suggestionToString={(s) =>
+                typeof s === "string" ? s : (s as any).name
+              }
               allowAdd={true}
               placeholder="RPG, Action, Simulation"
             />
