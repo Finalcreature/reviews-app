@@ -266,6 +266,29 @@ app.patch("/api/reviews/:id/tags", async (req, res) => {
   }
 });
 
+// PATCH /api/reviews/:id/genre - Update the genre for a review
+app.patch("/api/reviews/:id/genre", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { genre } = req.body;
+
+    // Accept null/undefined to clear genre
+    const result = await pool.query(
+      "UPDATE reviews SET genre = $1 WHERE id = $2 RETURNING *",
+      [genre || null, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Review not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error updating review genre:", err);
+    res.status(500).json({ error: "Failed to update genre" });
+  }
+});
+
 app.patch("/api/archived-reviews/:id/tags", async (req, res) => {
   const { id } = req.params;
   const { tags } = req.body;

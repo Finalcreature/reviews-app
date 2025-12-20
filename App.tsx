@@ -184,6 +184,22 @@ const App: React.FC = () => {
     []
   );
 
+  // Update review genre handler
+  const updateReviewGenre = useCallback(async (id: string, genre?: string) => {
+    try {
+      const updated = await api.updateReviewGenre(id, genre);
+      setReviews((prevReviews: Review[]) =>
+        prevReviews.map((r) =>
+          r.id === id ? { ...r, genre: updated.genre } : r
+        )
+      );
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to update genre. Please try again.");
+    }
+  }, []);
+
   const filteredReviews = reviews.filter((review) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
@@ -313,6 +329,7 @@ const App: React.FC = () => {
                         review={review}
                         onDelete={deleteReview}
                         onUpdateTags={updateReviewTags}
+                        onUpdateGenre={updateReviewGenre}
                       />
                     ))}
                   </div>

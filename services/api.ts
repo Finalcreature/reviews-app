@@ -87,6 +87,22 @@ export const createReview = async (
 };
 
 /**
+ * Update the genre for a review (normalized reviews table)
+ */
+export const updateReviewGenre = async (
+  id: string,
+  genre?: string
+): Promise<Review> => {
+  const response = await fetch(`${API_BASE_URL}/api/reviews/${id}/genre`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ genre }),
+  });
+  if (!response.ok) throw new Error("Failed to update review genre on server");
+  return response.json();
+};
+
+/**
  * [Backend] Deletes a review by its ID by calling the backend server.
  * @param id - The ID of the review to delete.
  * @returns A promise that resolves to an object indicating success.

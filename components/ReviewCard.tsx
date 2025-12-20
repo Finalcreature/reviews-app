@@ -15,6 +15,7 @@ interface ReviewCardProps {
   review: Review;
   onDelete: (id: string) => void;
   onUpdateTags: (id: string, newTags: string[]) => void;
+  onUpdateGenre?: (id: string, genre?: string) => void;
 }
 
 const StarRating: React.FC<{ rating: number }> = ({ rating }) => {
@@ -43,8 +44,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingTags, setIsEditingTags] = useState(false);
-  const [editTags, setEditTags] = useState<string>(
-    review.tags ? review.tags.join(", ") : ""
+  const [editTagsInput, setEditTagsInput] = useState<string>(
+    (review.tags || []).join(", ")
   );
   const [copiedFirst, setCopiedFirst] = useState(false);
   const [copiedLast, setCopiedLast] = useState(false);
@@ -333,7 +334,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
   };
 
   const handleSaveTags = () => {
-    const newTags = editTags
+    const newTags = editTagsInput
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
@@ -391,10 +392,10 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                 <>
                   <input
                     className="bg-slate-700 text-slate-200 text-xs font-medium px-2.5 py-1 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editTags}
-                    onChange={(e) => setEditTags(e.target.value)}
-                    placeholder="tag1, tag2, ..."
-                    style={{ minWidth: 120 }}
+                    value={editTagsInput}
+                    onChange={(e) => setEditTagsInput(e.target.value)}
+                    placeholder="comma-separated tags"
+                    style={{ minWidth: 160 }}
                   />
                   <button
                     className="ml-2 px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
@@ -406,7 +407,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                     className="ml-1 px-2 py-1 text-xs rounded bg-slate-600 text-white hover:bg-slate-700"
                     onClick={() => {
                       setIsEditingTags(false);
-                      setEditTags(review.tags ? review.tags.join(", ") : "");
+                      setEditTagsInput((review.tags || []).join(", "));
                     }}
                   >
                     Cancel
@@ -414,24 +415,29 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                 </>
               ) : (
                 <>
-                  {review.tags && review.tags.length > 0 ? (
-                    review.tags.map((tag, i) => (
-                      <span
-                        key={i}
-                        className="inline-block bg-slate-700 text-slate-300 text-xs font-medium px-2.5 py-1 rounded-full"
-                      >
-                        {tag}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-slate-500 text-xs">No tags</span>
-                  )}
-                  <button
-                    className="ml-2 px-2 py-1 text-xs rounded bg-slate-700 text-blue-400 hover:bg-blue-800 hover:text-white"
-                    onClick={() => setIsEditingTags(true)}
-                  >
-                    Edit
-                  </button>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {review.tags && review.tags.length > 0 ? (
+                        review.tags.map((t, i) => (
+                          <span
+                            key={i}
+                            className="inline-block bg-slate-700 text-slate-200 text-xs font-semibold px-2 py-0.5 rounded-full"
+                          >
+                            {t}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-slate-500">No tags</span>
+                      )}
+                    </div>
+                    <button
+                      className="ml-2 px-2 py-1 text-xs rounded bg-slate-700 text-blue-400 hover:bg-blue-800 hover:text-white"
+                      onClick={() => setIsEditingTags(true)}
+                      aria-label="Edit tags"
+                    >
+                      Edit
+                    </button>
+                  </div>
                 </>
               )}
             </div>
