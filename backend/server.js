@@ -765,7 +765,7 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
           }
         }
       } catch (e) {
-        console.error('Failed to persist metadata to archived_reviews', e);
+        console.error("Failed to persist metadata to archived_reviews", e);
       }
       // attach resolved genre metadata if available
       let genreMeta = null;
@@ -829,7 +829,7 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
         }
       }
     } catch (e) {
-      console.error('Failed to persist metadata to archived_reviews', e);
+      console.error("Failed to persist metadata to archived_reviews", e);
     }
     // attach resolved genre metadata if available
     let genreMeta = null;

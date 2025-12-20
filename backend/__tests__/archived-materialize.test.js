@@ -79,7 +79,10 @@ describe("POST /api/archived-reviews/:id/materialize", () => {
     expect(arRow.rows[0].genre).toBe("test-genre");
     expect(arRow.rows[0].categoryname).toBe("test-cat");
     // ensure no duplicate reviews for the game
-    const count = await pool.query("SELECT COUNT(*) FROM reviews WHERE game_id = $1", [gameId]);
+    const count = await pool.query(
+      "SELECT COUNT(*) FROM reviews WHERE game_id = $1",
+      [gameId]
+    );
     expect(parseInt(count.rows[0].count, 10)).toBe(1);
     // Clean up
     await pool.query("DELETE FROM archived_reviews WHERE id = $1", [arch2]);

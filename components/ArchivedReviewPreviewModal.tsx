@@ -76,7 +76,8 @@ export const ArchivedReviewPreviewModal: React.FC<
 
         // Update local editable state
         handleFieldChange("genre", genreName);
-        if (categoryName) handleFieldChange("categoryName" as any, categoryName);
+        if (categoryName)
+          handleFieldChange("categoryName" as any, categoryName);
 
         // Persist merged data back into archived review (merge, don't replace)
         try {
@@ -87,7 +88,10 @@ export const ArchivedReviewPreviewModal: React.FC<
           await updateArchivedReview(editableReview.id, merged);
           if (onUpdateReview) onUpdateReview(editableReview.id, merged as any);
         } catch (e) {
-          console.error("Failed to persist archived review after materialize", e);
+          console.error(
+            "Failed to persist archived review after materialize",
+            e
+          );
         }
       }
 
@@ -130,13 +134,14 @@ export const ArchivedReviewPreviewModal: React.FC<
 
         <div className="mb-4">
           <strong>Game Name:</strong>
-          {isEditing ? (<>
-            <input
-              type="text"
-              className="w-full bg-slate-700 text-white p-2 rounded mt-2"
-              value={editableReview.game_name}
-              onChange={(e) => handleFieldChange("game_name", e.target.value)}
-            />
+          {isEditing ? (
+            <>
+              <input
+                type="text"
+                className="w-full bg-slate-700 text-white p-2 rounded mt-2"
+                value={editableReview.game_name}
+                onChange={(e) => handleFieldChange("game_name", e.target.value)}
+              />
               <Typeahead
                 value={editableReview.genre || ""}
                 onChange={(v) => handleFieldChange("genre", v)}
@@ -387,11 +392,18 @@ export const ArchivedReviewPreviewModal: React.FC<
                     // If a genre string was provided, try to normalize it into genres table
                     try {
                       if (editableReview.genre && editableReview.genre.trim()) {
-                        const opts: any = { genreName: editableReview.genre.trim() };
+                        const opts: any = {
+                          genreName: editableReview.genre.trim(),
+                        };
                         if ((editableReview as any).categoryName) {
-                          opts.categoryName = (editableReview as any).categoryName;
+                          opts.categoryName = (
+                            editableReview as any
+                          ).categoryName;
                         }
-                        const res = await updateReviewGenre(editableReview.id, opts);
+                        const res = await updateReviewGenre(
+                          editableReview.id,
+                          opts
+                        );
                         if (res && res.genre) {
                           const merged = {
                             ...editableReview,
@@ -401,17 +413,29 @@ export const ArchivedReviewPreviewModal: React.FC<
                               (res.genre as any).categoryName,
                           } as Review & { categoryName?: string };
                           try {
-                            await updateArchivedReview(editableReview.id, merged);
-                            if (onUpdateReview) onUpdateReview(editableReview.id, merged as any);
+                            await updateArchivedReview(
+                              editableReview.id,
+                              merged
+                            );
+                            if (onUpdateReview)
+                              onUpdateReview(editableReview.id, merged as any);
                           } catch (e) {
-                            console.error('Failed to persist archived review after genre normalization', e);
+                            console.error(
+                              "Failed to persist archived review after genre normalization",
+                              e
+                            );
                           }
                         }
                         // refresh cache again
-                        try { await getGenres(true); } catch (e) {}
+                        try {
+                          await getGenres(true);
+                        } catch (e) {}
                       }
                     } catch (e) {
-                      console.error('Failed to normalize genre after archived save', e);
+                      console.error(
+                        "Failed to normalize genre after archived save",
+                        e
+                      );
                     }
                     // Ensure we also close any category prompt if it was open
                     setShowCategoryPrompt(false);
