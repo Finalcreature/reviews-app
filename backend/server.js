@@ -19,6 +19,26 @@ pool.connect((err, client, release) => {
   }
   console.log("Successfully connected to PostgreSQL database!");
   client.release();
+  // Sanity check: does `reviews.genre` column exist? (non-invasive)
+  pool
+    .query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name='reviews' AND column_name='genre'"
+    )
+    .then((r) => {
+      if (r.rows.length > 0) {
+        console.log("DB Check: 'reviews.genre' column detected.");
+      } else {
+        console.log(
+          "DB Check: 'reviews.genre' column not found (expected on older schemas)."
+        );
+      }
+    })
+    .catch((e) => {
+      console.warn(
+        "DB Check: could not determine if 'genre' column exists:",
+        e.message
+      );
+    });
 });
 
 // --- Middleware ---
@@ -56,7 +76,8 @@ app.get("/api/reviews/by-rating", async (req, res) => {
            'id', id,
            'title', review_json->>'title',
            'game_name', review_json->>'game_name',
-           'rating', (review_json->>'rating')::int
+           'rating', (review_json->>'rating')::int,
+           'genre', review_json->>'genre'
          )) AS reviews
        FROM archived_reviews
        WHERE review_json ? 'rating' AND review_json->>'rating' IS NOT NULL
@@ -79,7 +100,8 @@ app.get("/api/games-summary", async (req, res) => {
     ? `
       SELECT 
         games.game_name, 
-        (archived_reviews.review_json->>'rating')::numeric AS rating
+        (archived_reviews.review_json->>'rating')::numeric AS rating,
+        (archived_reviews.review_json->>'genre') AS genre
       FROM games
       JOIN reviews ON games.id = reviews.game_id
       JOIN archived_reviews ON reviews.id = archived_reviews.id;
@@ -87,7 +109,8 @@ app.get("/api/games-summary", async (req, res) => {
     : `
       SELECT 
         (review_json->>'game_name') AS game_name, 
-        (review_json->>'rating')::numeric AS rating
+        (review_json->>'rating')::numeric AS rating,
+        (review_json->>'genre') AS genre
       FROM archived_reviews;
     `;
 
@@ -108,6 +131,7 @@ app.post("/api/reviews", async (req, res) => {
       game_name,
       review_text,
       rating,
+      genre,
       positive_points,
       negative_points,
       tags,
@@ -119,6 +143,7 @@ app.post("/api/reviews", async (req, res) => {
       game_name,
       review_text,
       rating,
+      genre: genre || null,
       positive_points: positive_points || [],
       negative_points: negative_points || [],
       tags: tags || [],
@@ -154,8 +179,8 @@ app.post("/api/reviews", async (req, res) => {
       // 2. Insert review
       const reviewId = uuidv4();
       const reviewInsert = await client.query(
-        `INSERT INTO reviews (id, game_id, title, review_text, rating, positive_points, negative_points, tags)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO reviews (id, game_id, title, review_text, rating, positive_points, negative_points, tags, genre)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
         [
           reviewId,
@@ -166,6 +191,7 @@ app.post("/api/reviews", async (req, res) => {
           positive_points || [],
           negative_points || [],
           tags || [],
+          genre || null,
         ]
       );
 
@@ -179,6 +205,11 @@ app.post("/api/reviews", async (req, res) => {
 
       // 3. Include game_name in response
       const review = reviewInsert.rows[0];
+      console.log(
+        `Created review ${reviewId} (game: ${game_name}, genre: ${
+          genre || "n/a"
+        })`
+      );
       res.status(201).json({
         ...review,
         game_name, // manually inject it for frontend use
@@ -244,7 +275,7 @@ app.patch("/api/archived-reviews/:id/tags", async (req, res) => {
   }
 
   try {
-    const result = await db.query(
+    const result = await pool.query(
       `UPDATE archived_reviews
        SET review_json = jsonb_set(review_json, '{tags}', to_jsonb($1::text[]))
        WHERE id = $2`,
@@ -346,6 +377,7 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
         title,
         review_text,
         rating,
+        genre,
         positive_points,
         negative_points,
         tags,
@@ -371,39 +403,60 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
       }
 
       // Update reviews table fields
-      await client.query(
-        `UPDATE reviews SET
-           title = $1,
-           review_text = $2,
-           rating = $3,
-           positive_points = $4,
-           negative_points = $5,
-           tags = $6${gameId ? ", game_id = $7" : ""}
-         WHERE id = $8`,
-        gameId
-          ? [
-              title || null,
-              review_text || null,
-              rating !== undefined ? rating : null,
-              positive_points || [],
-              negative_points || [],
-              tags || [],
-              gameId,
-              id,
-            ]
-          : [
-              title || null,
-              review_text || null,
-              rating !== undefined ? rating : null,
-              positive_points || [],
-              negative_points || [],
-              tags || [],
-              id,
-            ]
-      );
+      // Include genre as the final field in the UPDATE param list to minimize index changes
+      if (gameId) {
+        await client.query(
+          `UPDATE reviews SET
+             title = $1,
+             review_text = $2,
+             rating = $3,
+             positive_points = $4,
+             negative_points = $5,
+             tags = $6,
+             game_id = $7,
+             genre = $8
+           WHERE id = $9`,
+          [
+            title || null,
+            review_text || null,
+            rating !== undefined ? rating : null,
+            positive_points || [],
+            negative_points || [],
+            tags || [],
+            gameId,
+            genre || null,
+            id,
+          ]
+        );
+      } else {
+        await client.query(
+          `UPDATE reviews SET
+             title = $1,
+             review_text = $2,
+             rating = $3,
+             positive_points = $4,
+             negative_points = $5,
+             tags = $6,
+             genre = $7
+           WHERE id = $8`,
+          [
+            title || null,
+            review_text || null,
+            rating !== undefined ? rating : null,
+            positive_points || [],
+            negative_points || [],
+            tags || [],
+            genre || null,
+            id,
+          ]
+        );
+      }
     }
 
     await client.query("COMMIT");
+    console.log(
+      `Updated archived review ${id} (genre: ${updatedReview.genre || "n/a"})`
+    );
     res.json({ success: true });
   } catch (err) {
     await client.query("ROLLBACK");

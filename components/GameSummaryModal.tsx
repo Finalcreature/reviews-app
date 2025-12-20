@@ -2,11 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { GameSummary } from "../types"; // Import the new interface
-import {
-  fetchArchivedReviewForGame,
-  getGameSummaries,
-  updateArchivedReviewTags,
-} from "../services/api"; // Import the new API function
+import { fetchArchivedReviewForGame, getGameSummaries } from "../services/api"; // Import the new API function
 import { Review } from "../types";
 interface GameSummaryModalProps {
   isOpen: boolean; // Controls whether the modal is visible
@@ -61,14 +57,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
     }
   };
 
-  const handleUpdateArchivedTags = async (id: string, tags: string[]) => {
-    try {
-      await updateArchivedReviewTags(id, tags); // assuming you have an API util like this
-      // optionally refetch or update local state
-    } catch (error) {
-      console.error("Failed to update tags:", error);
-    }
-  };
+  // (Tag updating helper is available via `updateArchivedReviewTags` in services/api)
 
   // Compute filtered and sorted summaries inside the component
   const filteredSummaries: GameSummary[] = summaries
@@ -160,7 +149,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider"
                     >
-                      Rating
+                      Genre
                     </th>
                   </tr>
                 </thead>
@@ -172,6 +161,9 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                         onClick={() => handleGameNameClick(summary.game_name)}
                       >
                         {summary.game_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        {summary.genre || "—"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
                         {summary.rating}/10

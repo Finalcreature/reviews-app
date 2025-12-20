@@ -15,6 +15,7 @@ export interface RatingGroup {
     title: string;
     game_name: string;
     rating: number;
+    genre?: string;
   }[];
 }
 

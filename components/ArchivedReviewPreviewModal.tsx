@@ -72,6 +72,22 @@ export const ArchivedReviewPreviewModal: React.FC<
           )}
         </div>
 
+        <div className="mb-4">
+          <strong>Genre:</strong>
+          {isEditing ? (
+            <input
+              type="text"
+              className="w-full bg-slate-700 text-white p-2 rounded mt-2"
+              value={editableReview.genre || ""}
+              onChange={(e) => handleFieldChange("genre", e.target.value)}
+            />
+          ) : (
+            <p className="text-slate-300 text-sm mt-1">
+              {editableReview.genre || "—"}
+            </p>
+          )}
+        </div>
+
         <h3 className="text-2xl font-bold text-white mb-4">
           {isEditing ? (
             <input

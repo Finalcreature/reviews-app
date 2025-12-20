@@ -348,6 +348,11 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
           <div className="flex-grow">
             <p className="text-sm font-semibold text-blue-400 tracking-wider uppercase flex items-center gap-2">
               <span>{review.game_name}</span>
+              {review.genre && (
+                <span className="ml-2 inline-block bg-slate-700 text-slate-200 text-xs font-semibold px-2 py-0.5 rounded-full">
+                  {review.genre}
+                </span>
+              )}
               <button
                 onClick={handleCopyGameName}
                 className="inline-flex items-center p-1 rounded text-slate-400 hover:bg-slate-700 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"

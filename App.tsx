@@ -131,6 +131,7 @@ const App: React.FC = () => {
           game_name: parsed.game_name,
           review_text: parsed.review_text,
           rating: parsed.rating,
+          genre: parsed.genre || undefined,
           positive_points: parsed.positive_points,
           negative_points: parsed.negative_points,
           tags: tags.length > 0 ? tags : undefined,
