@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Review } from "../types";
-import { updateArchivedReview } from "@/services/api";
+import { updateArchivedReview, getGenres } from "@/services/api";
+import Typeahead from "./Typeahead";
 
 interface ArchivedReviewPreviewModalProps {
   isOpen: boolean;
@@ -75,12 +76,20 @@ export const ArchivedReviewPreviewModal: React.FC<
         <div className="mb-4">
           <strong>Genre:</strong>
           {isEditing ? (
-            <input
-              type="text"
-              className="w-full bg-slate-700 text-white p-2 rounded mt-2"
-              value={editableReview.genre || ""}
-              onChange={(e) => handleFieldChange("genre", e.target.value)}
-            />
+            <div className="mt-2">
+              <Typeahead
+                value={editableReview.genre || ""}
+                onChange={(v) => handleFieldChange("genre", v)}
+                fetchSuggestions={async (q) =>
+                  (await getGenres()).filter((g) =>
+                    g.toLowerCase().includes((q || "").toLowerCase())
+                  )
+                }
+                onSelect={(v) => handleFieldChange("genre", v)}
+                allowAdd={true}
+                placeholder="Genre (optional)"
+              />
+            </div>
           ) : (
             <p className="text-slate-300 text-sm mt-1">
               {editableReview.genre || "—"}
@@ -243,6 +252,12 @@ export const ArchivedReviewPreviewModal: React.FC<
                     setSaveStatus("success");
                     if (onUpdateReview)
                       onUpdateReview(editableReview.id, editableReview);
+                    // refresh genre cache used by typeaheads
+                    try {
+                      await getGenres(true);
+                    } catch (e) {
+                      /* ignore cache refresh errors */
+                    }
                     setIsEditing(false);
                   } catch (err) {
                     console.error(err);

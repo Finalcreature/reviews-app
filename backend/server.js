@@ -123,6 +123,33 @@ app.get("/api/games-summary", async (req, res) => {
   }
 });
 
+// GET /api/genres - return a deduped list of genres (from reviews.genre and archived_reviews JSON)
+app.get("/api/genres", async (req, res) => {
+  try {
+    const query = `
+      SELECT DISTINCT ON (lower_genre) genre
+      FROM (
+        SELECT TRIM(genre) AS genre, LOWER(TRIM(genre)) AS lower_genre
+        FROM reviews
+        WHERE genre IS NOT NULL AND TRIM(genre) <> ''
+        UNION ALL
+        SELECT TRIM(review_json->>'genre') AS genre, LOWER(TRIM(review_json->>'genre')) AS lower_genre
+        FROM archived_reviews
+        WHERE review_json ? 'genre' AND TRIM(review_json->>'genre') <> ''
+      ) t
+      WHERE genre IS NOT NULL
+      ORDER BY lower_genre, genre;
+    `;
+
+    const result = await pool.query(query);
+    const genres = result.rows.map((r) => r.genre);
+    res.json(genres);
+  } catch (err) {
+    console.error("Error fetching genres:", err);
+    res.status(500).json({ error: "Failed to fetch genres" });
+  }
+});
+
 // POST /api/reviews - Create a new review
 app.post("/api/reviews", async (req, res) => {
   try {

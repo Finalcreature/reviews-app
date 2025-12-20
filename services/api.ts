@@ -144,6 +144,24 @@ export const getGameSummaries = async (
   return response.json();
 };
 
+// Simple in-memory cache for genres (per-process). TTL in ms.
+let _genresCache: { value: string[]; expiresAt: number } | null = null;
+const GENRES_CACHE_TTL = 60 * 1000; // 1 minute
+
+export const getGenres = async (force: boolean = false): Promise<string[]> => {
+  const now = Date.now();
+  if (!force && _genresCache && _genresCache.expiresAt > now) {
+    return _genresCache.value;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/genres`);
+  if (!res.ok) throw new Error("Failed to fetch genres");
+  const data = await res.json();
+  const genres: string[] = Array.isArray(data) ? data : [];
+  _genresCache = { value: genres, expiresAt: Date.now() + GENRES_CACHE_TTL };
+  return genres;
+};
+
 /**
  * Fetch aggregated reviews grouped by rating from backend
  */

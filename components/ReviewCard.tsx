@@ -15,7 +15,7 @@ interface ReviewCardProps {
   review: Review;
   onDelete: (id: string) => void;
   onUpdateTags: (id: string, newTags: string[]) => void;
-  onUpdateGenre?: (id: string, genre?: string) => void;
+  onUpdateGenre?: (id: string, genre?: string) => Promise<any> | void;
 }
 
 const StarRating: React.FC<{ rating: number }> = ({ rating }) => {
@@ -37,15 +37,23 @@ const StarRating: React.FC<{ rating: number }> = ({ rating }) => {
   );
 };
 
+import Typeahead from "./Typeahead";
+import { getGenres } from "../services/api";
+
 export const ReviewCard: React.FC<ReviewCardProps> = ({
   review,
   onDelete,
   onUpdateTags,
+  onUpdateGenre,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [editTagsInput, setEditTagsInput] = useState<string>(
     (review.tags || []).join(", ")
+  );
+  const [isEditingGenre, setIsEditingGenre] = useState(false);
+  const [editGenreInput, setEditGenreInput] = useState<string>(
+    review.genre || ""
   );
   const [copiedFirst, setCopiedFirst] = useState(false);
   const [copiedLast, setCopiedLast] = useState(false);
@@ -342,6 +350,24 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
     setIsEditingTags(false);
   };
 
+  const handleSaveGenre = async () => {
+    const newGenre = editGenreInput.trim() || undefined;
+    if (onUpdateGenre) {
+      try {
+        await onUpdateGenre(review.id, newGenre);
+        // refresh genre cache so other typeaheads see the new value
+        try {
+          await getGenres(true);
+        } catch (e) {
+          /* ignore cache refresh errors */
+        }
+      } catch (err) {
+        console.error("Failed to update genre:", err);
+      }
+    }
+    setIsEditingGenre(false);
+  };
+
   return (
     <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 overflow-hidden transition-all duration-300">
       <div className="p-4 sm:p-6">
@@ -349,11 +375,57 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
           <div className="flex-grow">
             <p className="text-sm font-semibold text-blue-400 tracking-wider uppercase flex items-center gap-2">
               <span>{review.game_name}</span>
-              {review.genre && (
-                <span className="ml-2 inline-block bg-slate-700 text-slate-200 text-xs font-semibold px-2 py-0.5 rounded-full">
-                  {review.genre}
-                </span>
-              )}
+              <div className="ml-2 inline-flex items-center gap-2">
+                {!isEditingGenre ? (
+                  <>
+                    <span className="inline-block bg-slate-700 text-slate-200 text-xs font-semibold px-2 py-0.5 rounded-full">
+                      {review.genre || (
+                        <span className="text-slate-500">No genre</span>
+                      )}
+                    </span>
+                    {onUpdateGenre && (
+                      <button
+                        className="ml-2 p-1 text-xs rounded bg-slate-700 text-blue-400 hover:bg-blue-800 hover:text-white"
+                        onClick={() => {
+                          setIsEditingGenre(true);
+                          setEditGenreInput(review.genre || "");
+                        }}
+                        aria-label="Edit genre"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div style={{ minWidth: 160 }} className="w-[160px]">
+                      <Typeahead
+                        value={editGenreInput}
+                        onChange={(v) => setEditGenreInput(v)}
+                        fetchSuggestions={async () => getGenres()}
+                        onSelect={(v) => setEditGenreInput(v)}
+                        allowAdd={true}
+                        placeholder="Genre (e.g., RPG)"
+                      />
+                    </div>
+                    <button
+                      className="ml-2 px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+                      onClick={handleSaveGenre}
+                    >
+                      Save
+                    </button>
+                    <button
+                      className="ml-1 px-2 py-1 text-xs rounded bg-slate-600 text-white hover:bg-slate-700"
+                      onClick={() => {
+                        setIsEditingGenre(false);
+                        setEditGenreInput(review.genre || "");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleCopyGameName}
                 className="inline-flex items-center p-1 rounded text-slate-400 hover:bg-slate-700 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"

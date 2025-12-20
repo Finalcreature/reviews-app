@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import Typeahead from "./Typeahead";
+import { getGenres } from "../services/api";
 
 interface JsonInputFormProps {
   onAddReview: (jsonString: string, tags: string[]) => Promise<boolean>;
@@ -222,14 +224,20 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
           >
             Genre (optional)
           </label>
-          <input
-            id="genre-input"
-            type="text"
-            value={genreInput}
-            onChange={(e) => setGenreInput(e.target.value)}
-            placeholder="RPG, Action, Simulation"
-            className="mt-2 w-full p-3 bg-slate-900/50 border-2 border-slate-600 rounded-md text-slate-200 text-sm focus:ring-2 focus:outline-none focus:ring-blue-500 transition-colors"
-          />
+          <div className="mt-2">
+            <Typeahead
+              value={genreInput}
+              onChange={(v) => setGenreInput(v)}
+              fetchSuggestions={async (q) =>
+                (await getGenres()).filter((g) =>
+                  g.toLowerCase().includes((q || "").toLowerCase())
+                )
+              }
+              onSelect={(v) => setGenreInput(v)}
+              allowAdd={true}
+              placeholder="RPG, Action, Simulation"
+            />
+          </div>
         </div>
 
         {error && (
