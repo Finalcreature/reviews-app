@@ -147,10 +147,10 @@ export const getRawReviews = async (): Promise<any[]> => {
  * @returns A promise that resolves to an array of game summaries.
  */
 export const getGameSummaries = async (
-  visibleOnly: boolean = false
+  visibility: "all" | "visible" | "hidden" = "all"
 ): Promise<GameSummary[]> => {
   const response = await fetch(
-    `${API_BASE_URL}/api/games-summary?visible=${visibleOnly}`
+    `${API_BASE_URL}/api/games-summary?visibility=${visibility}`
   );
   if (!response.ok) {
     throw new Error("Failed to fetch game summaries from server");

@@ -84,20 +84,21 @@ app.get("/api/reviews/by-rating", async (req, res) => {
     // empty (e.g., imported/archived-only data).
     const result = await pool.query(
       `SELECT
-         (review_json->>'rating')::int AS rating,
-         COUNT(*) AS count,
-         json_agg(json_build_object(
-           'id', id,
-           'title', review_json->>'title',
-           'game_name', review_json->>'game_name',
-           'rating', (review_json->>'rating')::int,
-           'genre', review_json->>'genre'
-         )) AS reviews
-       FROM archived_reviews
-       WHERE review_json ? 'rating' AND review_json->>'rating' IS NOT NULL
-       GROUP BY (review_json->>'rating')::int
-       ORDER BY rating DESC`
+  (review_json->>'rating')::numeric::int AS rating,
+  COUNT(*) AS count,
+  json_agg(json_build_object(
+    'id', id,
+    'title', review_json->>'title',
+    'game_name', review_json->>'game_name',
+    'rating', (review_json->>'rating')::numeric::int
+  )) AS reviews
+FROM archived_reviews
+WHERE review_json ? 'rating'
+  AND review_json->>'rating' IS NOT NULL
+GROUP BY (review_json->>'rating')::numeric::int
+ORDER BY rating DESC;`
     );
+
 
     // Ensure we always return an array of groups
     res.json(result.rows || []);
@@ -108,25 +109,41 @@ app.get("/api/reviews/by-rating", async (req, res) => {
 });
 
 app.get("/api/games-summary", async (req, res) => {
-  const onlyVisible = req.query.visible === "true";
+  const { visibility } = req.query;
 
-  const query = onlyVisible
-    ? `
+  let query;
+  if (visibility === "visible") {
+    query = `
       SELECT 
         games.game_name, 
         (archived_reviews.review_json->>'rating')::numeric AS rating,
-        (archived_reviews.review_json->>'genre') AS genre
+        (archived_reviews.review_json->>'genre') AS genre,
+        true AS visible
       FROM games
       JOIN reviews ON games.id = reviews.game_id
       JOIN archived_reviews ON reviews.id = archived_reviews.id;
-    `
-    : `
+    `;
+  } else if (visibility === "hidden") {
+    query = `
       SELECT 
         (review_json->>'game_name') AS game_name, 
         (review_json->>'rating')::numeric AS rating,
-        (review_json->>'genre') AS genre
-      FROM archived_reviews;
+        (review_json->>'genre') AS genre,
+        false AS visible
+      FROM archived_reviews
+      WHERE id NOT IN (SELECT id FROM reviews);
     `;
+  } else {
+    query = `
+      SELECT 
+        (ar.review_json->>'game_name') AS game_name, 
+        (ar.review_json->>'rating')::numeric AS rating,
+        (ar.review_json->>'genre') AS genre,
+        CASE WHEN r.id IS NOT NULL THEN true ELSE false END AS visible
+      FROM archived_reviews ar
+      LEFT JOIN reviews r ON ar.id = r.id;
+    `;
+  }
 
   try {
     const result = await pool.query(query);

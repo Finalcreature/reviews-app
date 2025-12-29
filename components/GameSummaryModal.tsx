@@ -19,7 +19,9 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [visibleOnly, setVisibleOnly] = useState<boolean>(false);
+  const [visibilityFilter, setVisibilityFilter] = useState<
+    "all" | "visible" | "hidden"
+  >("all");
 
   useEffect(() => {
     if (isOpen) {
@@ -28,7 +30,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
         setIsLoading(true);
         setError(null);
         try {
-          const fetchedSummaries = await getGameSummaries(visibleOnly);
+          const fetchedSummaries = await getGameSummaries(visibilityFilter);
           setSummaries(fetchedSummaries);
         } catch (err) {
           console.error("Failed to fetch game summaries:", err);
@@ -39,7 +41,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
       };
       fetchSummaries();
     }
-  }, [isOpen, visibleOnly]); // Re-run when isOpen changes (i.e., modal opens/closes)
+  }, [isOpen, visibilityFilter]); // Re-run when isOpen changes (i.e., modal opens/closes)
 
   if (!isOpen) return null; // Don't render anything if the modal is not open
 
@@ -61,10 +63,16 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
 
   // Compute filtered and sorted summaries inside the component
   const filteredSummaries: GameSummary[] = summaries
-    .filter((summary: GameSummary) =>
-      // Defensive: some summaries may have null/undefined game_name from backend
-      (summary.game_name ?? "").toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    .filter((summary: GameSummary) => {
+      const matchesSearch = (summary.game_name ?? "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      if (!matchesSearch) return false;
+
+      if (visibilityFilter === "hidden")
+        return (summary as any).visible === false;
+      return true;
+    })
     .sort((a: GameSummary, b: GameSummary) =>
       (a.game_name ?? "").localeCompare(b.game_name ?? "")
     );
@@ -112,16 +120,21 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
         </div>
 
         {/* 🧠 Toggle for filtering */}
-        <div className="px-5 pt-3 pb-2 flex items-center justify-end">
-          <label className="text-slate-300 text-sm flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={visibleOnly}
-              onChange={() => setVisibleOnly((v) => !v)}
-              className="accent-purple-600"
-            />
-            Show only visible reviews
-          </label>
+        <div className="px-5 pt-3 pb-2 flex items-center justify-end gap-2">
+          <label className="text-slate-300 text-sm">Show:</label>
+          <select
+            value={visibilityFilter}
+            onChange={(e) =>
+              setVisibilityFilter(
+                e.target.value as "all" | "visible" | "hidden"
+              )
+            }
+            className="bg-slate-900 text-slate-200 border border-slate-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+          >
+            <option value="all">All Reviews</option>
+            <option value="visible">Visible Only</option>
+            <option value="hidden">Hidden Only</option>
+          </select>
         </div>
 
         <div className="p-5">

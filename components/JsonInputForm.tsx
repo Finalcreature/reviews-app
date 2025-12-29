@@ -55,7 +55,7 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
     const gameName = headerLines[0];
     const ratingRaw = headerLines[1];
     const title = headerLines[2];
-    const genre = headerLines[3] || undefined;
+    const genre = ""; //todo support optional genre line (e.g headerLines[3] || undefined)
 
     const rating = parseInt(ratingRaw, 10);
     if (Number.isNaN(rating) || rating < 1 || rating > 10) {

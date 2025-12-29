@@ -2,6 +2,7 @@ import React from "react";
 import "@testing-library/jest-dom";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import Typeahead from "../Typeahead";
+import { vi } from "vitest";
 
 describe("Typeahead", () => {
   test("shows object suggestions and Add option", async () => {

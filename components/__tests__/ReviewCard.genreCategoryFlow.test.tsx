@@ -3,6 +3,7 @@ import "@testing-library/jest-dom";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ReviewCard } from "../ReviewCard";
 import { Review } from "../../types";
+import { vi } from "vitest";
 
 // Mock services
 vi.mock("../../services/api", () => ({
