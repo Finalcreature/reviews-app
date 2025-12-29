@@ -24,7 +24,8 @@
     "noUncheckedSideEffectImports": true,
 
     "paths": {
-      "@/*" :  ["./*"]
+      "@/*": ["./*"]
     }
-  }
+  },
+  "exclude": ["**/__tests__/**", "**/*.test.*"]
 }

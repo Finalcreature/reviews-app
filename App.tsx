@@ -61,11 +61,8 @@ const App: React.FC = () => {
     updatedReview: Review
   ) => {
     try {
-      await fetch(`/api/archived-reviews/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedReview),
-      });
+      // Use service helper so requests go to the configured backend API (API_BASE_URL)
+      await api.updateArchivedReview(id, updatedReview);
       // update state if necessary
     } catch (error) {
       console.error("Failed to update archived review:", error);
@@ -112,7 +109,11 @@ const App: React.FC = () => {
   };
 
   const addReview = useCallback(
-    async (jsonString: string, tags: string[]): Promise<boolean> => {
+    async (
+      jsonString: string,
+      tags: string[],
+      genreInput?: string
+    ): Promise<boolean> => {
       try {
         const parsed = JSON.parse(jsonString);
         if (
@@ -131,12 +132,28 @@ const App: React.FC = () => {
           game_name: parsed.game_name,
           review_text: parsed.review_text,
           rating: parsed.rating,
+          genre: parsed.genre || undefined,
           positive_points: parsed.positive_points,
           negative_points: parsed.negative_points,
           tags: tags.length > 0 ? tags : undefined,
         };
 
         const createdReview = await api.createReview(newReviewData);
+        // If the user provided a genre (typed or selected), try to normalize it
+        if (genreInput && genreInput.trim()) {
+          try {
+            // Ask backend to create/find genre and associate it with the review in one transaction
+            await api.updateReviewGenre(createdReview.id, {
+              genreName: genreInput.trim(),
+            });
+            // Refresh the saved reviews list item to show normalized genre
+            const refreshed = await api.getReviews();
+            setReviews((prev) => [refreshed[0], ...prev]);
+          } catch (e) {
+            // don't block review creation on this; log for visibility
+            console.error("Failed to normalize genre for created review", e);
+          }
+        }
         setReviews((prevReviews: Review[]) => [createdReview, ...prevReviews]);
         setError(null);
         return true;
@@ -178,6 +195,45 @@ const App: React.FC = () => {
       } catch (err) {
         console.error(err);
         setError("Failed to update tags. Please try again.");
+      }
+    },
+    []
+  );
+
+  // Update review genre handler (accepts opts: {genreId, genreName, categoryId, categoryName})
+  const updateReviewGenre = useCallback(
+    async (
+      id: string,
+      opts: {
+        genreId?: string;
+        genreName?: string;
+        categoryId?: string;
+        categoryName?: string;
+      }
+    ) => {
+      try {
+        const updated = await api.updateReviewGenre(id, opts);
+        // API returns { review, genre }
+        const genreMeta = updated.genre;
+        setReviews((prevReviews: Review[]) =>
+          prevReviews.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  // prefer normalized fields when available
+                  genre: genreMeta ? genreMeta.name : r.genre,
+                  genreId: genreMeta ? genreMeta.id : r.genreId,
+                  categoryName: genreMeta
+                    ? genreMeta.categoryName ?? undefined
+                    : r.categoryName,
+                }
+              : r
+          )
+        );
+        setError(null);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to update genre. Please try again.");
       }
     },
     []
@@ -312,6 +368,7 @@ const App: React.FC = () => {
                         review={review}
                         onDelete={deleteReview}
                         onUpdateTags={updateReviewTags}
+                        onUpdateGenre={updateReviewGenre}
                       />
                     ))}
                   </div>

@@ -5,7 +5,7 @@
  * @returns A promise that resolves to the updated review.
  */
 
-import { Review, NewReviewData, GameSummary } from "../types";
+import { Review, NewReviewData, GameSummary, Genre, Category } from "../types";
 
 export interface RatingGroup {
   rating: number;
@@ -15,6 +15,7 @@ export interface RatingGroup {
     title: string;
     game_name: string;
     rating: number;
+    genre?: string;
   }[];
 }
 
@@ -86,6 +87,36 @@ export const createReview = async (
 };
 
 /**
+ * Update the genre for a review (normalized reviews table)
+ */
+export const updateReviewGenre = async (
+  id: string,
+  opts: {
+    genreId?: string;
+    genreName?: string;
+    categoryId?: string;
+    categoryName?: string;
+  }
+): Promise<{ review: Review; genre: Genre }> => {
+  const response = await fetch(`${API_BASE_URL}/api/reviews/${id}/genre`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(opts),
+  });
+  if (response.ok) return response.json();
+
+  // If the review row doesn't exist (404), attempt to materialize the archived review
+  if (response.status === 404) {
+    // This will create or update the normalized review and return { review, genre, materialized }
+    const materialized = await materializeArchivedReview(id, opts as any);
+    return materialized as { review: Review; genre: Genre };
+  }
+
+  const text = await response.text();
+  throw new Error(text || "Failed to update review genre on server");
+};
+
+/**
  * [Backend] Deletes a review by its ID by calling the backend server.
  * @param id - The ID of the review to delete.
  * @returns A promise that resolves to an object indicating success.
@@ -116,16 +147,89 @@ export const getRawReviews = async (): Promise<any[]> => {
  * @returns A promise that resolves to an array of game summaries.
  */
 export const getGameSummaries = async (
-  visibleOnly: boolean = false
+  visibility: "all" | "visible" | "hidden" = "all"
 ): Promise<GameSummary[]> => {
   const response = await fetch(
-    `${API_BASE_URL}/api/games-summary?visible=${visibleOnly}`
+    `${API_BASE_URL}/api/games-summary?visibility=${visibility}`
   );
   if (!response.ok) {
     throw new Error("Failed to fetch game summaries from server");
   }
   return response.json();
 };
+
+// Simple in-memory cache for genres (per-process). TTL in ms.
+let _genresCache: { value: Genre[]; expiresAt: number } | null = null;
+const GENRES_CACHE_TTL = 60 * 1000; // 1 minute
+export const getGenres = async (force: boolean = false): Promise<Genre[]> => {
+  const now = Date.now();
+  if (!force && _genresCache && _genresCache.expiresAt > now) {
+    return _genresCache.value;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/genres`);
+  if (!res.ok) throw new Error("Failed to fetch genres");
+  const data = await res.json();
+  const genres: Genre[] = Array.isArray(data) ? data : [];
+  _genresCache = { value: genres, expiresAt: Date.now() + GENRES_CACHE_TTL };
+  return genres;
+};
+
+export const getCategories = async (): Promise<Category[]> => {
+  const res = await fetch(`${API_BASE_URL}/api/categories`);
+  if (!res.ok) throw new Error("Failed to fetch categories");
+  return res.json();
+};
+
+export const createCategory = async (name: string): Promise<Category> => {
+  const res = await fetch(`${API_BASE_URL}/api/categories`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error("Failed to create category");
+  return res.json();
+};
+
+export const createGenre = async (opts: {
+  name: string;
+  categoryId?: string;
+  categoryName?: string;
+}): Promise<Genre> => {
+  const res = await fetch(`${API_BASE_URL}/api/genres`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(opts),
+  });
+  if (!res.ok) throw new Error("Failed to create genre");
+  // bust cache after creation
+  _genresCache = null;
+  return res.json();
+};
+
+export async function materializeArchivedReview(
+  archivedId: string,
+  opts: {
+    genreId?: string;
+    genreName?: string;
+    categoryId?: string;
+    categoryName?: string;
+  }
+) {
+  const res = await fetch(
+    `${API_BASE_URL}/api/archived-reviews/${archivedId}/materialize`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts || {}),
+    }
+  );
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to materialize archived review");
+  }
+  return res.json();
+}
 
 /**
  * Fetch aggregated reviews grouped by rating from backend

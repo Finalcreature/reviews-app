@@ -2,11 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { GameSummary } from "../types"; // Import the new interface
-import {
-  fetchArchivedReviewForGame,
-  getGameSummaries,
-  updateArchivedReviewTags,
-} from "../services/api"; // Import the new API function
+import { fetchArchivedReviewForGame, getGameSummaries } from "../services/api"; // Import the new API function
 import { Review } from "../types";
 interface GameSummaryModalProps {
   isOpen: boolean; // Controls whether the modal is visible
@@ -23,7 +19,9 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [visibleOnly, setVisibleOnly] = useState<boolean>(false);
+  const [visibilityFilter, setVisibilityFilter] = useState<
+    "all" | "visible" | "hidden"
+  >("all");
 
   useEffect(() => {
     if (isOpen) {
@@ -32,7 +30,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
         setIsLoading(true);
         setError(null);
         try {
-          const fetchedSummaries = await getGameSummaries(visibleOnly);
+          const fetchedSummaries = await getGameSummaries(visibilityFilter);
           setSummaries(fetchedSummaries);
         } catch (err) {
           console.error("Failed to fetch game summaries:", err);
@@ -43,7 +41,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
       };
       fetchSummaries();
     }
-  }, [isOpen, visibleOnly]); // Re-run when isOpen changes (i.e., modal opens/closes)
+  }, [isOpen, visibilityFilter]); // Re-run when isOpen changes (i.e., modal opens/closes)
 
   if (!isOpen) return null; // Don't render anything if the modal is not open
 
@@ -61,22 +59,22 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
     }
   };
 
-  const handleUpdateArchivedTags = async (id: string, tags: string[]) => {
-    try {
-      await updateArchivedReviewTags(id, tags); // assuming you have an API util like this
-      // optionally refetch or update local state
-    } catch (error) {
-      console.error("Failed to update tags:", error);
-    }
-  };
+  // (Tag updating helper is available via `updateArchivedReviewTags` in services/api)
 
   // Compute filtered and sorted summaries inside the component
   const filteredSummaries: GameSummary[] = summaries
-    .filter((summary: GameSummary) =>
-      summary.game_name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    .filter((summary: GameSummary) => {
+      const matchesSearch = (summary.game_name ?? "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      if (!matchesSearch) return false;
+
+      if (visibilityFilter === "hidden")
+        return (summary as any).visible === false;
+      return true;
+    })
     .sort((a: GameSummary, b: GameSummary) =>
-      a.game_name.localeCompare(b.game_name)
+      (a.game_name ?? "").localeCompare(b.game_name ?? "")
     );
 
   return (
@@ -122,16 +120,21 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
         </div>
 
         {/* 🧠 Toggle for filtering */}
-        <div className="px-5 pt-3 pb-2 flex items-center justify-end">
-          <label className="text-slate-300 text-sm flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={visibleOnly}
-              onChange={() => setVisibleOnly((v) => !v)}
-              className="accent-purple-600"
-            />
-            Show only visible reviews
-          </label>
+        <div className="px-5 pt-3 pb-2 flex items-center justify-end gap-2">
+          <label className="text-slate-300 text-sm">Show:</label>
+          <select
+            value={visibilityFilter}
+            onChange={(e) =>
+              setVisibilityFilter(
+                e.target.value as "all" | "visible" | "hidden"
+              )
+            }
+            className="bg-slate-900 text-slate-200 border border-slate-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+          >
+            <option value="all">All Reviews</option>
+            <option value="visible">Visible Only</option>
+            <option value="hidden">Hidden Only</option>
+          </select>
         </div>
 
         <div className="p-5">
@@ -160,7 +163,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider"
                     >
-                      Rating
+                      Genre
                     </th>
                   </tr>
                 </thead>
@@ -172,6 +175,9 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                         onClick={() => handleGameNameClick(summary.game_name)}
                       >
                         {summary.game_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        {summary.genre || "—"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
                         {summary.rating}/10

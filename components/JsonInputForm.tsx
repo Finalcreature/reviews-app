@@ -1,7 +1,13 @@
 import React, { useState } from "react";
+import Typeahead from "./Typeahead";
+import { getGenres } from "../services/api";
 
 interface JsonInputFormProps {
-  onAddReview: (jsonString: string, tags: string[]) => Promise<boolean>;
+  onAddReview: (
+    jsonString: string,
+    tags: string[],
+    genre?: string
+  ) => Promise<boolean>;
   error: string | null;
   clearError: () => void;
 }
@@ -13,6 +19,7 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
 }) => {
   const [jsonInput, setJsonInput] = useState("");
   const [tagsInput, setTagsInput] = useState("");
+  const [genreInput, setGenreInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Helper: Detects if the input is in the special review format (not JSON)
@@ -31,10 +38,10 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
     const rawLines = text.split(/\r?\n/);
     const trimmed = rawLines.map((l) => l.trim());
 
-    // Extract first three non-empty header lines (gameName, rating, title)
+    // Extract first up to four non-empty header lines (gameName, rating, title, optional genre)
     const headerLines: string[] = [];
     let headerEndIndex = -1;
-    for (let i = 0; i < trimmed.length && headerLines.length < 3; i++) {
+    for (let i = 0; i < trimmed.length && headerLines.length < 4; i++) {
       if (trimmed[i].length === 0) continue; // skip empty lines only for headers
       headerLines.push(trimmed[i]);
       headerEndIndex = i;
@@ -48,6 +55,7 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
     const gameName = headerLines[0];
     const ratingRaw = headerLines[1];
     const title = headerLines[2];
+    const genre = ""; //todo support optional genre line (e.g headerLines[3] || undefined)
 
     const rating = parseInt(ratingRaw, 10);
     if (Number.isNaN(rating) || rating < 1 || rating > 10) {
@@ -90,6 +98,7 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
       game_name: gameName,
       review_text: reviewTextLines.join("\n").trim(),
       rating,
+      genre,
       positive_points: positivePoints,
       negative_points: negativePoints,
     };
@@ -106,7 +115,18 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
       .split(",")
       .map((tag) => tag.trim())
       .filter((tag) => tag.length > 0);
-    const success = await onAddReview(jsonInput, tags);
+    const genre = genreInput.trim() || undefined;
+    // If jsonInput is plain JSON we append genre field if provided
+    let payload = jsonInput;
+    try {
+      const obj = JSON.parse(jsonInput);
+      if (genre) obj.genre = genre;
+      payload = JSON.stringify(obj, null, 2);
+    } catch (e) {
+      // not JSON - leave as-is (special format handled separately)
+    }
+
+    const success = await onAddReview(payload, tags, genre);
 
     if (success) {
       setJsonInput("");
@@ -123,6 +143,8 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
     if (isSpecialReviewFormat(value)) {
       try {
         const jsonObj = parseSpecialReviewFormat(value);
+        // Allow explicit genre input to override parsed genre
+        if (genreInput.trim()) jsonObj.genre = genreInput.trim();
         const jsonString = JSON.stringify(jsonObj, null, 2);
         setJsonInput(jsonString);
         // Automatically add the review after conversion
@@ -197,6 +219,34 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
             placeholder="Action, Sci-Fi, Co-op (comma-separated)"
             className="mt-2 w-full p-3 bg-slate-900/50 border-2 border-slate-600 rounded-md text-slate-200 text-sm focus:ring-2 focus:outline-none focus:ring-blue-500 transition-colors"
           />
+        </div>
+
+        <div>
+          <label
+            htmlFor="genre-input"
+            className="block text-lg font-medium text-slate-300"
+          >
+            Genre (optional)
+          </label>
+          <div className="mt-2">
+            <Typeahead
+              value={genreInput}
+              onChange={(v) => setGenreInput(v)}
+              fetchSuggestions={async (q) =>
+                (await getGenres()).filter((g) =>
+                  g.name.toLowerCase().includes((q || "").toLowerCase())
+                )
+              }
+              onSelect={(v) =>
+                setGenreInput(typeof v === "string" ? v : (v as any).name)
+              }
+              suggestionToString={(s) =>
+                typeof s === "string" ? s : (s as any).name
+              }
+              allowAdd={true}
+              placeholder="RPG, Action, Simulation"
+            />
+          </div>
         </div>
 
         {error && (

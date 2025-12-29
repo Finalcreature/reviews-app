@@ -19,6 +19,26 @@ pool.connect((err, client, release) => {
   }
   console.log("Successfully connected to PostgreSQL database!");
   client.release();
+  // Sanity check: does `reviews.genre` column exist? (non-invasive)
+  pool
+    .query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name='reviews' AND column_name='genre'"
+    )
+    .then((r) => {
+      if (r.rows.length > 0) {
+        console.log("DB Check: 'reviews.genre' column detected.");
+      } else {
+        console.log(
+          "DB Check: 'reviews.genre' column not found (expected on older schemas)."
+        );
+      }
+    })
+    .catch((e) => {
+      console.warn(
+        "DB Check: could not determine if 'genre' column exists:",
+        e.message
+      );
+    });
 });
 
 // --- Middleware ---
@@ -30,10 +50,24 @@ app.get("/api/reviews", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT reviews.*, 
-        games.game_name FROM reviews 
-        JOIN games ON reviews.game_id = games.id ORDER BY created_at DESC`
+        games.game_name,
+        g.id AS genre_id, g.name AS genre, g.category_id AS genre_category_id,
+        c.name AS category_name
+      FROM reviews
+      LEFT JOIN games ON reviews.game_id = games.id
+      LEFT JOIN genres g ON reviews.genre_id = g.id
+      LEFT JOIN categories c ON g.category_id = c.id
+      ORDER BY reviews.created_at DESC`
     );
-    res.json(result.rows);
+
+    // Keep returning the same shape frontend expects; include genre/category fields
+    const rows = result.rows.map((r) => ({
+      ...r,
+      genre: r.genre || r.genre, // prefer joined genre name when present
+      genreId: r.genre_id || null,
+      categoryName: r.category_name || null,
+    }));
+    res.json(rows);
   } catch (err) {
     console.error("Error fetching reviews:", err);
     res.status(500).json({ error: "Failed to fetch reviews" });
@@ -50,19 +84,21 @@ app.get("/api/reviews/by-rating", async (req, res) => {
     // empty (e.g., imported/archived-only data).
     const result = await pool.query(
       `SELECT
-         (review_json->>'rating')::int AS rating,
-         COUNT(*) AS count,
-         json_agg(json_build_object(
-           'id', id,
-           'title', review_json->>'title',
-           'game_name', review_json->>'game_name',
-           'rating', (review_json->>'rating')::int
-         )) AS reviews
-       FROM archived_reviews
-       WHERE review_json ? 'rating' AND review_json->>'rating' IS NOT NULL
-       GROUP BY (review_json->>'rating')::int
-       ORDER BY rating DESC`
+  (review_json->>'rating')::numeric::int AS rating,
+  COUNT(*) AS count,
+  json_agg(json_build_object(
+    'id', id,
+    'title', review_json->>'title',
+    'game_name', review_json->>'game_name',
+    'rating', (review_json->>'rating')::numeric::int
+  )) AS reviews
+FROM archived_reviews
+WHERE review_json ? 'rating'
+  AND review_json->>'rating' IS NOT NULL
+GROUP BY (review_json->>'rating')::numeric::int
+ORDER BY rating DESC;`
     );
+
 
     // Ensure we always return an array of groups
     res.json(result.rows || []);
@@ -73,23 +109,41 @@ app.get("/api/reviews/by-rating", async (req, res) => {
 });
 
 app.get("/api/games-summary", async (req, res) => {
-  const onlyVisible = req.query.visible === "true";
+  const { visibility } = req.query;
 
-  const query = onlyVisible
-    ? `
+  let query;
+  if (visibility === "visible") {
+    query = `
       SELECT 
         games.game_name, 
-        (archived_reviews.review_json->>'rating')::numeric AS rating
+        (archived_reviews.review_json->>'rating')::numeric AS rating,
+        (archived_reviews.review_json->>'genre') AS genre,
+        true AS visible
       FROM games
       JOIN reviews ON games.id = reviews.game_id
       JOIN archived_reviews ON reviews.id = archived_reviews.id;
-    `
-    : `
+    `;
+  } else if (visibility === "hidden") {
+    query = `
       SELECT 
         (review_json->>'game_name') AS game_name, 
-        (review_json->>'rating')::numeric AS rating
-      FROM archived_reviews;
+        (review_json->>'rating')::numeric AS rating,
+        (review_json->>'genre') AS genre,
+        false AS visible
+      FROM archived_reviews
+      WHERE id NOT IN (SELECT id FROM reviews);
     `;
+  } else {
+    query = `
+      SELECT 
+        (ar.review_json->>'game_name') AS game_name, 
+        (ar.review_json->>'rating')::numeric AS rating,
+        (ar.review_json->>'genre') AS genre,
+        CASE WHEN r.id IS NOT NULL THEN true ELSE false END AS visible
+      FROM archived_reviews ar
+      LEFT JOIN reviews r ON ar.id = r.id;
+    `;
+  }
 
   try {
     const result = await pool.query(query);
@@ -97,6 +151,168 @@ app.get("/api/games-summary", async (req, res) => {
   } catch (err) {
     console.error("Error fetching game summaries:", err);
     res.status(500).json({ error: "Failed to fetch game summaries" });
+  }
+});
+
+// GET /api/genres - return a deduped list of genres (from reviews.genre and archived_reviews JSON)
+app.get("/api/genres", async (req, res) => {
+  try {
+    // Return normalized genre rows, including category metadata
+    const query = `
+      SELECT g.id, g.name, g.category_id AS "categoryId", c.name AS "categoryName"
+      FROM genres g
+      LEFT JOIN categories c ON c.id = g.category_id
+      ORDER BY lower(g.name)
+    `;
+
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching genres:", err);
+    res.status(500).json({ error: "Failed to fetch genres" });
+  }
+});
+
+// GET /api/categories
+app.get("/api/categories", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name FROM categories ORDER BY lower(name)`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching categories:", err);
+    res.status(500).json({ error: "Failed to fetch categories" });
+  }
+});
+
+// POST /api/categories
+app.post("/api/categories", async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || String(name).trim() === "") {
+      return res.status(400).json({ error: "Category name required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO categories (name) VALUES ($1) ON CONFLICT (lower(name)) DO UPDATE SET name = EXCLUDED.name RETURNING id, name`,
+      [name]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error creating category:", err);
+    res.status(500).json({ error: "Failed to create category" });
+  }
+});
+
+// POST /api/genres
+app.post("/api/genres", async (req, res) => {
+  try {
+    const { name, categoryId, categoryName } = req.body;
+    if (!name || String(name).trim() === "") {
+      return res.status(400).json({ error: "Genre name required" });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      let finalCategoryId = categoryId || null;
+      if (!finalCategoryId && categoryName) {
+        const r = await client.query(
+          `INSERT INTO categories (name) VALUES($1) ON CONFLICT (lower(name)) DO UPDATE SET name = EXCLUDED.name RETURNING id, name`,
+          [categoryName]
+        );
+        finalCategoryId = r.rows[0].id;
+      }
+
+      const r2 = await client.query(
+        `INSERT INTO genres (name, category_id) VALUES ($1, $2) ON CONFLICT (lower(name)) DO UPDATE SET category_id = COALESCE(EXCLUDED.category_id, genres.category_id) RETURNING id, name, category_id`,
+        [name, finalCategoryId]
+      );
+
+      await client.query("COMMIT");
+      const created = r2.rows[0];
+      // attach categoryName
+      if (created.category_id) {
+        const c = await pool.query(
+          `SELECT id, name FROM categories WHERE id = $1`,
+          [created.category_id]
+        );
+        created.categoryName = c.rows[0].name;
+      }
+      res.status(201).json(created);
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("Error creating genre:", err);
+    res.status(500).json({ error: "Failed to create genre" });
+  }
+});
+
+// PATCH /api/reviews/:id/genre - transactional update allowing names or ids
+app.patch("/api/reviews/:id/genre", async (req, res) => {
+  const { id } = req.params;
+  const { genreId, genreName, categoryId, categoryName } = req.body;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Ensure category exists if name provided
+    let finalCategoryId = categoryId || null;
+    if (!finalCategoryId && categoryName) {
+      const r = await client.query(
+        `INSERT INTO categories (name) VALUES($1) ON CONFLICT (lower(name)) DO UPDATE SET name = EXCLUDED.name RETURNING id, name`,
+        [categoryName]
+      );
+      finalCategoryId = r.rows[0].id;
+    }
+
+    // Ensure genre exists (create if needed)
+    let finalGenreId = genreId || null;
+    if (!finalGenreId && genreName) {
+      const r2 = await client.query(
+        `INSERT INTO genres (name, category_id) VALUES ($1, $2) ON CONFLICT (lower(name)) DO UPDATE SET category_id = COALESCE(EXCLUDED.category_id, genres.category_id) RETURNING id`,
+        [genreName, finalCategoryId]
+      );
+      finalGenreId = r2.rows[0].id;
+    }
+
+    if (!finalGenreId) {
+      return res.status(400).json({ error: "genreId or genreName required" });
+    }
+
+    const upd = await client.query(
+      `UPDATE reviews SET genre_id = $1 WHERE id = $2 RETURNING *`,
+      [finalGenreId, id]
+    );
+
+    if (upd.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Review not found" });
+    }
+
+    await client.query("COMMIT");
+
+    // Return the updated review plus resolved genre/category
+    const g = await pool.query(
+      `SELECT g.id, g.name, g.category_id, c.name AS category_name FROM genres g LEFT JOIN categories c ON c.id = g.category_id WHERE g.id = $1`,
+      [finalGenreId]
+    );
+
+    res.json({ review: upd.rows[0], genre: g.rows[0] });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Error updating review genre (transaction):", err);
+    res.status(500).json({ error: "Failed to update review genre" });
+  } finally {
+    client.release();
   }
 });
 
@@ -108,6 +324,7 @@ app.post("/api/reviews", async (req, res) => {
       game_name,
       review_text,
       rating,
+      genre,
       positive_points,
       negative_points,
       tags,
@@ -119,6 +336,7 @@ app.post("/api/reviews", async (req, res) => {
       game_name,
       review_text,
       rating,
+      genre: genre || null,
       positive_points: positive_points || [],
       negative_points: negative_points || [],
       tags: tags || [],
@@ -140,9 +358,8 @@ app.post("/api/reviews", async (req, res) => {
 
       let gameId;
       if (gameResult.rows.length > 0) {
-        return res.status(409).json({
-          error: `Game "${game_name}" already exists.`,
-        });
+        // Reuse existing game when present (don't treat as an error when creating a review)
+        gameId = gameResult.rows[0].id;
       } else {
         gameId = uuidv4();
         await client.query(
@@ -154,8 +371,8 @@ app.post("/api/reviews", async (req, res) => {
       // 2. Insert review
       const reviewId = uuidv4();
       const reviewInsert = await client.query(
-        `INSERT INTO reviews (id, game_id, title, review_text, rating, positive_points, negative_points, tags)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO reviews (id, game_id, title, review_text, rating, positive_points, negative_points, tags, genre)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
         [
           reviewId,
@@ -166,6 +383,7 @@ app.post("/api/reviews", async (req, res) => {
           positive_points || [],
           negative_points || [],
           tags || [],
+          genre || null,
         ]
       );
 
@@ -179,6 +397,11 @@ app.post("/api/reviews", async (req, res) => {
 
       // 3. Include game_name in response
       const review = reviewInsert.rows[0];
+      console.log(
+        `Created review ${reviewId} (game: ${game_name}, genre: ${
+          genre || "n/a"
+        })`
+      );
       res.status(201).json({
         ...review,
         game_name, // manually inject it for frontend use
@@ -235,6 +458,8 @@ app.patch("/api/reviews/:id/tags", async (req, res) => {
   }
 });
 
+// Note: simple genre PATCH handler removed to ensure transactional handler is used.
+
 app.patch("/api/archived-reviews/:id/tags", async (req, res) => {
   const { id } = req.params;
   const { tags } = req.body;
@@ -244,7 +469,7 @@ app.patch("/api/archived-reviews/:id/tags", async (req, res) => {
   }
 
   try {
-    const result = await db.query(
+    const result = await pool.query(
       `UPDATE archived_reviews
        SET review_json = jsonb_set(review_json, '{tags}', to_jsonb($1::text[]))
        WHERE id = $2`,
@@ -329,9 +554,9 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // Update archived JSON
+    // Merge incoming JSON into existing archived JSON (preserve fields not provided by client)
     await client.query(
-      "UPDATE archived_reviews SET review_json = $1 WHERE id = $2",
+      "UPDATE archived_reviews SET review_json = COALESCE(review_json, '{}'::jsonb) || $1::jsonb WHERE id = $2",
       [updatedReview, id]
     );
 
@@ -346,6 +571,7 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
         title,
         review_text,
         rating,
+        genre,
         positive_points,
         negative_points,
         tags,
@@ -371,44 +597,276 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
       }
 
       // Update reviews table fields
-      await client.query(
-        `UPDATE reviews SET
-           title = $1,
-           review_text = $2,
-           rating = $3,
-           positive_points = $4,
-           negative_points = $5,
-           tags = $6${gameId ? ", game_id = $7" : ""}
-         WHERE id = $8`,
-        gameId
-          ? [
-              title || null,
-              review_text || null,
-              rating !== undefined ? rating : null,
-              positive_points || [],
-              negative_points || [],
-              tags || [],
-              gameId,
-              id,
-            ]
-          : [
-              title || null,
-              review_text || null,
-              rating !== undefined ? rating : null,
-              positive_points || [],
-              negative_points || [],
-              tags || [],
-              id,
-            ]
-      );
+      // Include genre as the final field in the UPDATE param list to minimize index changes
+      if (gameId) {
+        await client.query(
+          `UPDATE reviews SET
+             title = $1,
+             review_text = $2,
+             rating = $3,
+             positive_points = $4,
+             negative_points = $5,
+             tags = $6,
+             game_id = $7,
+             genre = $8
+           WHERE id = $9`,
+          [
+            title || null,
+            review_text || null,
+            rating !== undefined ? rating : null,
+            positive_points || [],
+            negative_points || [],
+            tags || [],
+            gameId,
+            genre || null,
+            id,
+          ]
+        );
+      } else {
+        await client.query(
+          `UPDATE reviews SET
+             title = $1,
+             review_text = $2,
+             rating = $3,
+             positive_points = $4,
+             negative_points = $5,
+             tags = $6,
+             genre = $7
+           WHERE id = $8`,
+          [
+            title || null,
+            review_text || null,
+            rating !== undefined ? rating : null,
+            positive_points || [],
+            negative_points || [],
+            tags || [],
+            genre || null,
+            id,
+          ]
+        );
+      }
     }
 
     await client.query("COMMIT");
+    console.log(
+      `Updated archived review ${id} (genre: ${updatedReview.genre || "n/a"})`
+    );
     res.json({ success: true });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Error updating archived review", err);
     res.status(500).send("Failed to update review");
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/archived-reviews/:id/materialize
+app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
+  const archivedId = req.params.id;
+  const { genreId, genreName, categoryId, categoryName } = req.body || {};
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const ar = await client.query(
+      "SELECT review_json FROM archived_reviews WHERE id = $1",
+      [archivedId]
+    );
+    if (ar.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Archived review not found" });
+    }
+    const reviewJson = ar.rows[0].review_json;
+
+    // ensure game exists (reuse if present)
+    const gameName = (reviewJson.game_name || "").trim();
+    let gameId = null;
+    if (gameName) {
+      const g = await client.query(
+        "SELECT id FROM games WHERE game_name = $1 LIMIT 1",
+        [gameName]
+      );
+      if (g.rowCount > 0) gameId = g.rows[0].id;
+      else {
+        const created = await client.query(
+          "INSERT INTO games (id, game_name) VALUES ($1, $2) RETURNING id",
+          [uuidv4(), gameName]
+        );
+        gameId = created.rows[0].id;
+      }
+    }
+
+    // ensure category
+    let finalCategoryId = categoryId || null;
+    if (!finalCategoryId && categoryName) {
+      const c = await client.query(
+        `INSERT INTO categories (name) VALUES ($1) ON CONFLICT (lower(name)) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+        [categoryName]
+      );
+      finalCategoryId = c.rows[0].id;
+    }
+
+    // ensure genre
+    let finalGenreId = genreId || null;
+    if (!finalGenreId && genreName) {
+      const g = await client.query(
+        `INSERT INTO genres (name, category_id) VALUES ($1, $2) ON CONFLICT (lower(name)) DO UPDATE SET category_id = COALESCE(EXCLUDED.category_id, genres.category_id) RETURNING id`,
+        [genreName, finalCategoryId]
+      );
+      finalGenreId = g.rows[0].id;
+    }
+
+    const title = reviewJson.title || null;
+    const review_text = reviewJson.review_text || null;
+    const rating = reviewJson.rating !== undefined ? reviewJson.rating : null;
+    const positive_points = reviewJson.positive_points || [];
+    const negative_points = reviewJson.negative_points || [];
+    const tags = reviewJson.tags || [];
+
+    // find existing review for this game
+    let existing = null;
+    if (gameId) {
+      const r = await client.query(
+        "SELECT id FROM reviews WHERE game_id = $1 LIMIT 1",
+        [gameId]
+      );
+      if (r.rowCount > 0) existing = r.rows[0];
+    }
+
+    if (existing && existing.id) {
+      await client.query(
+        `UPDATE reviews SET title = $1, review_text = $2, rating = $3, positive_points = $4, negative_points = $5, tags = $6, genre_id = $7, game_id = $8 WHERE id = $9`,
+        [
+          title,
+          review_text,
+          rating,
+          positive_points,
+          negative_points,
+          tags,
+          finalGenreId,
+          gameId,
+          existing.id,
+        ]
+      );
+      const updated = await client.query(
+        "SELECT * FROM reviews WHERE id = $1",
+        [existing.id]
+      );
+      // Persist key metadata back into the archived review JSON to avoid losing game_name/genre/category
+      try {
+        if (gameName) {
+          await client.query(
+            "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{game_name}', to_jsonb($1::text), true) WHERE id = $2",
+            [gameName, archivedId]
+          );
+        }
+        if (finalGenreId) {
+          const gm = await client.query(
+            "SELECT g.name AS genre_name, c.name AS category_name FROM genres g LEFT JOIN categories c ON c.id = g.category_id WHERE g.id = $1",
+            [finalGenreId]
+          );
+          const genreNameToSet = gm.rows[0]?.genre_name || null;
+          const categoryNameToSet = gm.rows[0]?.category_name || null;
+          if (genreNameToSet) {
+            await client.query(
+              "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{genre}', to_jsonb($1::text), true) WHERE id = $2",
+              [genreNameToSet, archivedId]
+            );
+          }
+          if (categoryNameToSet) {
+            await client.query(
+              "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{categoryName}', to_jsonb($1::text), true) WHERE id = $2",
+              [categoryNameToSet, archivedId]
+            );
+          }
+        }
+      } catch (e) {
+        console.error("Failed to persist metadata to archived_reviews", e);
+      }
+      // attach resolved genre metadata if available
+      let genreMeta = null;
+      if (finalGenreId) {
+        const g = await client.query(
+          "SELECT g.id, g.name, g.category_id, c.name AS category_name FROM genres g LEFT JOIN categories c ON c.id = g.category_id WHERE g.id = $1",
+          [finalGenreId]
+        );
+        genreMeta = g.rows[0];
+      }
+      await client.query("COMMIT");
+      return res.json({
+        review: updated.rows[0],
+        genre: genreMeta,
+        materialized: "updated",
+      });
+    }
+
+    // Create new review using archived id to preserve mapping
+    const newId = archivedId;
+    const insert = await client.query(
+      `INSERT INTO reviews (id, game_id, title, review_text, rating, positive_points, negative_points, tags, genre_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [
+        newId,
+        gameId,
+        title,
+        review_text,
+        rating,
+        positive_points,
+        negative_points,
+        tags,
+        finalGenreId,
+      ]
+    );
+    // Persist metadata back into archived review JSON
+    try {
+      if (gameName) {
+        await client.query(
+          "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{game_name}', to_jsonb($1::text), true) WHERE id = $2",
+          [gameName, archivedId]
+        );
+      }
+      if (finalGenreId) {
+        const gm = await client.query(
+          "SELECT g.name AS genre_name, c.name AS category_name FROM genres g LEFT JOIN categories c ON c.id = g.category_id WHERE g.id = $1",
+          [finalGenreId]
+        );
+        const genreNameToSet = gm.rows[0]?.genre_name || null;
+        const categoryNameToSet = gm.rows[0]?.category_name || null;
+        if (genreNameToSet) {
+          await client.query(
+            "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{genre}', to_jsonb($1::text), true) WHERE id = $2",
+            [genreNameToSet, archivedId]
+          );
+        }
+        if (categoryNameToSet) {
+          await client.query(
+            "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{categoryName}', to_jsonb($1::text), true) WHERE id = $2",
+            [categoryNameToSet, archivedId]
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Failed to persist metadata to archived_reviews", e);
+    }
+    // attach resolved genre metadata if available
+    let genreMeta = null;
+    if (finalGenreId) {
+      const g = await client.query(
+        "SELECT g.id, g.name, g.category_id, c.name AS category_name FROM genres g LEFT JOIN categories c ON c.id = g.category_id WHERE g.id = $1",
+        [finalGenreId]
+      );
+      genreMeta = g.rows[0];
+    }
+    await client.query("COMMIT");
+    return res.json({
+      review: insert.rows[0],
+      genre: genreMeta,
+      materialized: "created",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Materialize failed:", err);
+    res.status(500).json({ error: "Failed to materialize archived review" });
   } finally {
     client.release();
   }
@@ -507,6 +965,10 @@ app.delete("/api/wip-reviews/:id", async (req, res) => {
 });
 
 // --- Start Server ---
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
