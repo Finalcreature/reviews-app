@@ -105,6 +105,7 @@ export const updateReviewGenre = async (
   });
   if (response.ok) return response.json();
 
+  //todo: prevent this materialization if category is added to genre.
   // If the review row doesn't exist (404), attempt to materialize the archived review
   if (response.status === 404) {
     // This will create or update the normalized review and return { review, genre, materialized }

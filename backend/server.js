@@ -99,7 +99,6 @@ GROUP BY (review_json->>'rating')::numeric::int
 ORDER BY rating DESC;`
     );
 
-
     // Ensure we always return an array of groups
     res.json(result.rows || []);
   } catch (err) {
@@ -294,6 +293,44 @@ app.patch("/api/reviews/:id/genre", async (req, res) => {
     );
 
     if (upd.rows.length === 0) {
+      // Check if it exists in archived_reviews (archived-only)
+      const archRes = await client.query(
+        "SELECT id FROM archived_reviews WHERE id = $1",
+        [id]
+      );
+
+      if (archRes.rowCount > 0) {
+        // Update archived_reviews JSON directly without materializing
+        const gRes = await client.query(
+          `SELECT g.name, g.category_id, c.name as category_name FROM genres g LEFT JOIN categories c ON g.category_id = c.id WHERE g.id = $1`,
+          [finalGenreId]
+        );
+        const {
+          name: gName,
+          category_id: cId,
+          category_name: cName,
+        } = gRes.rows[0];
+
+        const patch = { genre: gName };
+        if (cName) patch.categoryName = cName;
+
+        await client.query(
+          "UPDATE archived_reviews SET review_json = COALESCE(review_json, '{}'::jsonb) || $1::jsonb WHERE id = $2",
+          [patch, id]
+        );
+
+        await client.query("COMMIT");
+        return res.json({
+          review: { id, genre: gName },
+          genre: {
+            id: finalGenreId,
+            name: gName,
+            categoryId: cId,
+            categoryName: cName,
+          },
+        });
+      }
+
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Review not found" });
     }
