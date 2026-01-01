@@ -597,13 +597,25 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
       [updatedReview, id]
     );
 
+    // Read back the merged archived JSON so we operate on the persisted state
+    const mergedRes = await client.query(
+      "SELECT review_json FROM archived_reviews WHERE id = $1",
+      [id]
+    );
+    if (mergedRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Archived review not found" });
+    }
+    const mergedJson = mergedRes.rows[0].review_json;
+
     // If a corresponding row exists in `reviews`, update the normalized fields.
     const reviewRes = await client.query(
       "SELECT * FROM reviews WHERE id = $1",
       [id]
     );
     if (reviewRes.rowCount > 0) {
-      // Ensure required fields exist on the incoming JSON
+      // Use fields from the merged archived JSON so changes persisted to archived_reviews
+      // are reflected when normalizing the reviews table.
       const {
         title,
         review_text,
@@ -613,23 +625,56 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
         negative_points,
         tags,
         game_name,
-      } = updatedReview;
+      } = mergedJson;
 
-      // Find or create game for the new game_name
+      // Determine the correct game_id for the updated game_name.
+      // Behavior:
+      // - If a game with the target name exists, use that game's id.
+      // - Else if the review currently references a game that has no other
+      //   reviews, update that existing game's name (avoid creating a new row).
+      // - Otherwise create a new game row and assign it.
       let gameId = null;
       if (game_name) {
-        const gameRow = await client.query(
-          "SELECT id FROM games WHERE game_name = $1",
+        // Check for an existing game with this exact name first
+        const existingGame = await client.query(
+          "SELECT id FROM games WHERE game_name = $1 LIMIT 1",
           [game_name]
         );
-        if (gameRow.rowCount > 0) {
-          gameId = gameRow.rows[0].id;
+        if (existingGame.rowCount > 0) {
+          gameId = existingGame.rows[0].id;
         } else {
-          gameId = uuidv4();
-          await client.query(
-            "INSERT INTO games (id, game_name) VALUES ($1, $2)",
-            [gameId, game_name]
-          );
+          // No game with that name exists. See whether the current review's
+          // game can be renamed safely (no other reviews reference it).
+          const oldGameId = reviewRes.rows[0].game_id;
+          if (oldGameId) {
+            const refs = await client.query(
+              "SELECT COUNT(*)::int AS cnt FROM reviews WHERE game_id = $1",
+              [oldGameId]
+            );
+            const refCount = parseInt(refs.rows[0].cnt, 10) || 0;
+            if (refCount === 1) {
+              // Safe to rename the existing game row in-place
+              await client.query(
+                "UPDATE games SET game_name = $1 WHERE id = $2",
+                [game_name, oldGameId]
+              );
+              gameId = oldGameId;
+            } else {
+              // Multiple reviews reference the old game, so create a new game
+              gameId = uuidv4();
+              await client.query(
+                "INSERT INTO games (id, game_name) VALUES ($1, $2)",
+                [gameId, game_name]
+              );
+            }
+          } else {
+            // review had no game_id, create a new game
+            gameId = uuidv4();
+            await client.query(
+              "INSERT INTO games (id, game_name) VALUES ($1, $2)",
+              [gameId, game_name]
+            );
+          }
         }
       }
 
@@ -686,7 +731,7 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
 
     await client.query("COMMIT");
     console.log(
-      `Updated archived review ${id} (genre: ${updatedReview.genre || "n/a"})`
+      `Updated archived review ${id} (genre: ${mergedJson.genre || "n/a"})`
     );
     res.json({ success: true });
   } catch (err) {
