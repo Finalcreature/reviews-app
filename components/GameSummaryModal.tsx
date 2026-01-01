@@ -7,13 +7,15 @@ import { Review } from "../types";
 interface GameSummaryModalProps {
   isOpen: boolean; // Controls whether the modal is visible
   onClose: () => void; // Function to call when the modal needs to be closed
-  onPreviewArchived: (review: Review) => void;
+  onPreviewArchived: (review: Review, refetchSummaries: () => void) => void;
+  refreshTrigger?: number;
 }
 
 export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
   isOpen,
   onClose,
   onPreviewArchived,
+  refreshTrigger,
 }) => {
   const [summaries, setSummaries] = useState<GameSummary[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -22,6 +24,29 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
   const [visibilityFilter, setVisibilityFilter] = useState<
     "all" | "visible" | "hidden"
   >("all");
+
+  const refetchSummaries = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fetchedSummaries = await getGameSummaries(visibilityFilter);
+      setSummaries(fetchedSummaries);
+      console.log("Refetching summaries");
+    } catch (err) {
+      console.error("Failed to fetch game summaries:", err);
+      setError("Failed to load game summaries. Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // If a parent requests an external refresh (via `refreshTrigger`), refetch.
+  useEffect(() => {
+    if (isOpen && typeof refreshTrigger !== "undefined") {
+      refetchSummaries();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
 
   useEffect(() => {
     if (isOpen) {
@@ -52,7 +77,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
     const archivedReview = await fetchArchivedReviewForGame(gameName);
     if (archivedReview) {
       if (archivedReview) {
-        onPreviewArchived(archivedReview);
+        onPreviewArchived(archivedReview, refetchSummaries);
       }
     } else {
       alert("No archived review found for this game.");

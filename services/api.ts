@@ -105,11 +105,12 @@ export const updateReviewGenre = async (
   });
   if (response.ok) return response.json();
 
-  // If the review row doesn't exist (404), attempt to materialize the archived review
+  // If the review row doesn't exist (404), don't auto-materialize.
+  // Materialization is a destructive action (creates a visible `reviews` row)
+  // and should only happen when explicitly requested by the caller.
   if (response.status === 404) {
-    // This will create or update the normalized review and return { review, genre, materialized }
-    const materialized = await materializeArchivedReview(id, opts as any);
-    return materialized as { review: Review; genre: Genre };
+    const txt = await response.text();
+    throw new Error(txt || "Review not found");
   }
 
   const text = await response.text();

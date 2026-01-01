@@ -4,7 +4,6 @@ import {
   updateArchivedReview,
   getGenres,
   getCategories,
-  materializeArchivedReview,
   updateReviewGenre,
 } from "../services/api";
 import Typeahead from "./Typeahead";
@@ -15,11 +14,18 @@ interface ArchivedReviewPreviewModalProps {
   archivedReview: Review | null;
   onUpdateTags?: (id: string, tags: string[]) => void;
   onUpdateReview?: (id: string, updatedReview: Review) => void;
+  onArchivedReviewUpdated?: () => void;
 }
 
 export const ArchivedReviewPreviewModal: React.FC<
   ArchivedReviewPreviewModalProps
-> = ({ isOpen, onClose, archivedReview, onUpdateReview }) => {
+> = ({
+  isOpen,
+  onClose,
+  archivedReview,
+  onUpdateReview,
+  onArchivedReviewUpdated,
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editableReview, setEditableReview] = useState<Review | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">(
@@ -57,22 +63,14 @@ export const ArchivedReviewPreviewModal: React.FC<
         payload.categoryId = categorySel.id;
       }
 
-      const result = await materializeArchivedReview(
-        editableReview.id,
-        payload
-      );
-      if (result && result.review) {
-        // Use returned genre metadata (name) when available; fall back to existing value
-        const genreName =
-          result.genre && result.genre.name
-            ? result.genre.name
-            : result.review.genre || editableReview.genre;
+      // Use the transactional genre update which will update the archived JSON
+      // when the review row is absent instead of materializing a visible review.
+      const result = await updateReviewGenre(editableReview.id, payload as any);
+      if (result && result.genre) {
+        const genreName = result.genre.name || editableReview.genre;
         const categoryName =
-          result.genre && result.genre.category_name
-            ? result.genre.category_name
-            : typeof categorySel === "string"
-            ? categorySel
-            : undefined;
+          (result.genre as any).categoryName ||
+          (typeof categorySel === "string" ? categorySel : undefined);
 
         // Update local editable state
         handleFieldChange("genre", genreName);
@@ -89,7 +87,7 @@ export const ArchivedReviewPreviewModal: React.FC<
           if (onUpdateReview) onUpdateReview(editableReview.id, merged as any);
         } catch (e) {
           console.error(
-            "Failed to persist archived review after materialize",
+            "Failed to persist archived review after genre update",
             e
           );
         }
@@ -101,6 +99,7 @@ export const ArchivedReviewPreviewModal: React.FC<
       setShowCategoryPrompt(false);
       setSelectedGenreToCreate(null);
       setIsEditing(false);
+      onArchivedReviewUpdated?.();
     } catch (e) {
       console.error(
         "Failed to materialize archived review with genre/category",
@@ -223,7 +222,7 @@ export const ArchivedReviewPreviewModal: React.FC<
             </>
           ) : (
             <p className="text-slate-300 text-sm mt-1">
-              {editableReview.genre || "—"}
+              {editableReview.game_name}
             </p>
           )}
         </div>
@@ -409,7 +408,7 @@ export const ArchivedReviewPreviewModal: React.FC<
                             ...editableReview,
                             genre: res.genre.name,
                             categoryName:
-                              (res.genre as any).category_name ||
+                              (res.genre as any).categoryName ||
                               (res.genre as any).categoryName,
                           } as Review & { categoryName?: string };
                           try {
@@ -419,6 +418,9 @@ export const ArchivedReviewPreviewModal: React.FC<
                             );
                             if (onUpdateReview)
                               onUpdateReview(editableReview.id, merged as any);
+                            // Inform parent to refresh game summaries
+                            if (onArchivedReviewUpdated)
+                              onArchivedReviewUpdated();
                           } catch (e) {
                             console.error(
                               "Failed to persist archived review after genre normalization",

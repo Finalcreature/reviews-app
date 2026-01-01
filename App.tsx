@@ -22,6 +22,10 @@ const App: React.FC = () => {
   const [wipReviews, setWipReviews] = useState<WipReview[]>([]);
   const [isWipModalOpen, setIsWipModalOpen] = useState(false);
   const [isRatingDashboardOpen, setIsRatingDashboardOpen] = useState(false);
+  const [onArchivedReviewUpdated, setOnArchivedReviewUpdated] = useState<
+    (() => void) | undefined
+  >(undefined);
+  const [gameSummariesRefresh, setGameSummariesRefresh] = useState(0);
 
   useEffect(() => {
     const loadWip = async () => {
@@ -52,8 +56,16 @@ const App: React.FC = () => {
   }, []);
 
   // pass this handler to GameSummaryModal
-  const handlePreviewArchived = (review: Review) => {
+  const handlePreviewArchived = (
+    review: Review,
+    refetchSummaries: () => void
+  ) => {
     setArchivedReviewPreview(review);
+    // Prefer a simple trigger that increments a token in App so the
+    // GameSummaryModal can reliably refetch when this token changes.
+    setOnArchivedReviewUpdated(
+      () => () => setGameSummariesRefresh((v) => v + 1)
+    );
   };
 
   const handleUpdateArchivedReview = async (
@@ -326,6 +338,7 @@ const App: React.FC = () => {
             isOpen={isSummaryModalOpen}
             onClose={() => setIsSummaryModalOpen(false)}
             onPreviewArchived={handlePreviewArchived}
+            refreshTrigger={gameSummariesRefresh}
           />
           <JsonInputForm
             onAddReview={addReview}
@@ -401,6 +414,7 @@ const App: React.FC = () => {
               onClose={() => setArchivedReviewPreview(null)}
               onUpdateTags={handleUpdateArchivedTags}
               onUpdateReview={handleUpdateArchivedReview}
+              onArchivedReviewUpdated={onArchivedReviewUpdated}
             />
           )}
           <WipReviewModal
