@@ -190,6 +190,12 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                     >
                       Genre
                     </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider"
+                    >
+                      Rating
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-slate-800 divide-y divide-slate-700">
