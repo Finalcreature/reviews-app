@@ -582,6 +582,91 @@ app.get("/api/archived-reviews/game/:gameName", async (req, res) => {
   }
 });
 
+// GET /api/reviews/by-category - aggregate archived reviews by category and genres
+app.get("/api/reviews/by-category", async (req, res) => {
+  try {
+    // Prepare a common table of archived reviews with parsed rating and game_name
+    const baseAr = `
+  SELECT
+    id,
+    review_json,
+    (review_json->>'rating')::numeric AS rating,
+    (review_json->>'game_name') AS game_name,
+    (review_json->>'genre') AS genre_name
+  FROM archived_reviews
+  WHERE review_json ? 'rating'
+    AND review_json->>'rating' IS NOT NULL
+`;
+
+    // Category-level aggregation
+    const catQuery = `
+      WITH ar AS (${baseAr})
+      SELECT c.id AS category_id, c.name AS category_name,
+        COUNT(*)::int AS review_count,
+        AVG(ar.rating)::numeric(10,2) AS avg_rating,
+        (array_agg(DISTINCT ar.game_name))[1] AS sample_game_name
+      FROM ar
+      LEFT JOIN genres g ON g.name = ar.genre_name
+      LEFT JOIN categories c ON c.id = g.category_id
+      WHERE c.id IS NOT NULL
+      GROUP BY c.id, c.name
+      ORDER BY review_count DESC
+    `;
+
+    // Genre-level aggregation (will be nested into categories)
+    const genreQuery = `
+      WITH ar AS (${baseAr})
+      SELECT g.id AS genre_id, g.name AS genre_name, g.category_id,
+        COUNT(*)::int AS review_count,
+        AVG(ar.rating)::numeric(10,2) AS avg_rating,
+        (array_agg(DISTINCT ar.game_name))[1] AS sample_game_name
+      FROM ar
+      LEFT JOIN genres g ON g.name = ar.genre_name
+      GROUP BY g.id, g.name, g.category_id
+      ORDER BY review_count DESC
+    `;
+
+    const catRes = await pool.query(catQuery);
+    const genreRes = await pool.query(genreQuery);
+
+    // Map genres into their parent categories
+    const categories = catRes.rows.map((r) => ({
+      category_id: r.category_id,
+      category_name: r.category_name,
+      review_count: parseInt(r.review_count, 10) || 0,
+      avg_rating: r.avg_rating !== null ? Number(r.avg_rating) : null,
+      sample_game_name: r.sample_game_name || null,
+      genres: [],
+    }));
+
+    const genresByCategory = {};
+    for (const g of genreRes.rows) {
+      const genre = {
+        genre_id: g.genre_id,
+        genre_name: g.genre_name,
+        review_count: parseInt(g.review_count, 10) || 0,
+        avg_rating: g.avg_rating !== null ? Number(g.avg_rating) : null,
+        sample_game_name: g.sample_game_name || null,
+      };
+      const catId = g.category_id;
+      if (catId) {
+        genresByCategory[catId] = genresByCategory[catId] || [];
+        genresByCategory[catId].push(genre);
+      }
+    }
+
+    // Attach genres arrays
+    for (const c of categories) {
+      c.genres = genresByCategory[c.category_id] || [];
+    }
+
+    res.json(categories);
+  } catch (err) {
+    console.error("Error fetching reviews by category:", err);
+    res.status(500).json({ error: "Failed to fetch reviews by category" });
+  }
+});
+
 // server.js (or your Express routes)
 app.put("/api/archived-reviews/:id", async (req, res) => {
   const { id } = req.params;

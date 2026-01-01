@@ -9,6 +9,7 @@ import { GameSummaryModal } from "./components/GameSummaryModal";
 import { ArchivedReviewPreviewModal } from "./components/ArchivedReviewPreviewModal";
 import { WipReviewModal } from "./components/WipReviewModal";
 import RatingDashboard from "./components/Dashboard/RatingDashboard";
+import CategoryDashboard from "./components/Dashboard/CategoryDashboard";
 import { WipReview } from "./types";
 
 const App: React.FC = () => {
@@ -22,6 +23,7 @@ const App: React.FC = () => {
   const [wipReviews, setWipReviews] = useState<WipReview[]>([]);
   const [isWipModalOpen, setIsWipModalOpen] = useState(false);
   const [isRatingDashboardOpen, setIsRatingDashboardOpen] = useState(false);
+  const [isCategoryDashboardOpen, setIsCategoryDashboardOpen] = useState(false);
   const [onArchivedReviewUpdated, setOnArchivedReviewUpdated] = useState<
     (() => void) | undefined
   >(undefined);
@@ -321,6 +323,26 @@ const App: React.FC = () => {
               />
             </svg>
           </button>
+          <button
+            onClick={() => setIsCategoryDashboardOpen(true)}
+            className="p-2 rounded-full bg-green-600 hover:bg-green-700 shadow-lg transition-colors flex-shrink-0"
+            title="View Category Dashboard"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-white"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 7h18M3 12h18M3 17h18"
+              />
+            </svg>
+          </button>
         </div>
         <header className="flex items-center gap-4 mb-8">
           <LogoIcon className="h-12 w-12 text-blue-500" />
@@ -429,6 +451,30 @@ const App: React.FC = () => {
             isOpen={isRatingDashboardOpen}
             onClose={() => setIsRatingDashboardOpen(false)}
           />
+          {isCategoryDashboardOpen && (
+            <div
+              className="fixed inset-0 z-60 flex items-start justify-center p-6"
+              aria-modal="true"
+              role="dialog"
+            >
+              <div
+                className="fixed inset-0 bg-black/60"
+                onClick={() => setIsCategoryDashboardOpen(false)}
+                aria-hidden="true"
+              />
+              <div className="relative w-full max-w-4xl bg-slate-900 rounded-xl p-8 text-slate-200 shadow-2xl border border-slate-800 overflow-auto max-h-[80vh]">
+                <div className="p-2 flex justify-end">
+                  <button
+                    onClick={() => setIsCategoryDashboardOpen(false)}
+                    className="px-3 py-1 rounded hover:bg-slate-800"
+                  >
+                    Close
+                  </button>
+                </div>
+                <CategoryDashboard />
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

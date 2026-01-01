@@ -5,7 +5,15 @@
  * @returns A promise that resolves to the updated review.
  */
 
-import { Review, NewReviewData, GameSummary, Genre, Category } from "../types";
+import {
+  Review,
+  NewReviewData,
+  GameSummary,
+  Genre,
+  Category,
+  CategoryStat,
+  GenreStat,
+} from "../types";
 
 export interface RatingGroup {
   rating: number;
@@ -179,6 +187,15 @@ export const getGenres = async (force: boolean = false): Promise<Genre[]> => {
 export const getCategories = async (): Promise<Category[]> => {
   const res = await fetch(`${API_BASE_URL}/api/categories`);
   if (!res.ok) throw new Error("Failed to fetch categories");
+  return res.json();
+};
+
+/**
+ * Fetch aggregated stats grouped by category (and nested genres)
+ */
+export const fetchCategories = async (): Promise<CategoryStat[]> => {
+  const res = await fetch(`${API_BASE_URL}/api/reviews/by-category`);
+  if (!res.ok) throw new Error("Failed to fetch categories stats from server");
   return res.json();
 };
 
