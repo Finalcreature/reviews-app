@@ -1,4 +1,4 @@
-import React, { JSX, useEffect, useMemo, useState } from "react";
+import { JSX, useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -8,6 +8,7 @@ import {
   Tooltip,
   Cell,
   CartesianGrid,
+  Treemap,
 } from "recharts";
 import { fetchCategories } from "../../services/api";
 import { CategoryStat, GenreStat } from "../../types";
@@ -83,16 +84,21 @@ export default function CategoryDashboard(): JSX.Element {
     "#c084fc",
   ];
 
+  const treemapData = useMemo(() => {
+    return data.map((category, index) => ({
+      name: category.category_name,
+      size: category.review_count,
+      fill: colors[index % colors.length],
+      category_id: category.category_id,
+    }));
+  }, [data]);
+
   if (loading) return <div className="p-6">Loading categories...</div>;
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
 
   const totalCategories = data.length;
   const totalReviews = data.reduce((s, d) => s + d.review_count, 0);
-  const topCategory =
-    data.reduce(
-      (best, d) => (d.review_count > (best?.review_count || 0) ? d : best),
-      data[0] || null
-    ) || null;
+  const totalGenres = data.reduce((s, d) => s + (d.genres?.length || 0), 0);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -105,9 +111,6 @@ export default function CategoryDashboard(): JSX.Element {
               {payload[0].value}
             </span>
           </p>
-          {!selectedCategory && (
-            <p className="text-xs text-gray-500 mt-1">Click to drill down</p>
-          )}
         </div>
       );
     }
@@ -116,40 +119,102 @@ export default function CategoryDashboard(): JSX.Element {
 
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-semibold">Category Dashboard</h2>
-          <p className="text-sm text-slate-400">
-            Distribution of reviews by category
-          </p>
-        </div>
+      <div className="flex items-center justify-evenly mb-4">
         <div className="flex gap-3">
-          <div className="bg-slate-800 p-3 rounded w-40">
+          <div className="bg-slate-800 p-3 rounded w-40 justify-items-center">
             <div className="text-xs text-slate-400">TOTAL CATEGORIES</div>
             <div className="text-2xl font-bold">{totalCategories}</div>
           </div>
-          <div className="bg-slate-800 p-3 rounded w-40">
+          <div className="bg-slate-800 p-3 rounded w-56 justify-items-center">
+            <div className="text-xs text-slate-400">TOTAL GENRES</div>
+            <div className="text-2xl font-bold">{totalGenres}</div>
+          </div>
+          <div className="bg-slate-800 p-3 rounded w-40 justify-items-center">
             <div className="text-xs text-slate-400">TOTAL REVIEWS</div>
             <div className="text-2xl font-bold">{totalReviews}</div>
-          </div>
-          <div className="bg-slate-800 p-3 rounded w-56">
-            <div className="text-xs text-slate-400">TOP CATEGORY</div>
-            <div className="text-lg font-semibold">
-              {topCategory?.category_name ?? "—"}
-            </div>
-            <div className="text-xs text-slate-400">
-              {topCategory ? `${topCategory.review_count} reviews` : "—"}
-            </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Treemap Summary View */}
+      <div className="bg-slate-900 p-4 rounded mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="font-semibold">Category Overview</div>
+        </div>
+
+        <ResponsiveContainer width="105%" height={300}>
+          <Treemap
+            data={treemapData}
+            dataKey="size"
+            aspectRatio={4 / 3}
+            stroke="#fff"
+            content={({ x, y, width, height, name, size, fill }: any) => (
+              <g>
+                <rect
+                  x={x}
+                  y={y}
+                  width={width}
+                  height={height}
+                  style={{
+                    fill,
+                    stroke: "#fff",
+                    strokeWidth: 2,
+                    cursor: "pointer",
+                    opacity: 0.8,
+                    transition: "opacity 0.2s",
+                  }}
+                  onMouseEnter={(e: any) => (e.target.style.opacity = 1)}
+                  onMouseLeave={(e: any) => (e.target.style.opacity = 0.8)}
+                  onClick={() => {
+                    // Find category by name and drill down
+                    const category = data.find((c) => c.category_name === name);
+                    if (category) setSelectedCategory(category.category_id);
+                  }}
+                />
+                {width > 50 && height > 30 && (
+                  <>
+                    <text
+                      x={x + width / 2}
+                      y={y + height / 2 - 8}
+                      textAnchor="middle"
+                      fill="#fff"
+                      stroke="#000"
+                      strokeWidth={2}
+                      fontSize={12}
+                      fontWeight="bold"
+                      style={{ paintOrder: "stroke" }}
+                    >
+                      {name}
+                    </text>
+                    <text
+                      x={x + width / 2}
+                      y={y + height / 2 + 8}
+                      textAnchor="middle"
+                      fill="#fff"
+                      stroke="#000"
+                      strokeWidth={2}
+                      fontSize={10}
+                      style={{ paintOrder: "stroke" }}
+                    >
+                      {size}
+                    </text>
+                  </>
+                )}
+              </g>
+            )}
+          />
+        </ResponsiveContainer>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-6">
         <div className="lg:col-span-2 bg-slate-900 p-4 rounded">
           <div className="flex items-center justify-between mb-3">
             <div className="font-semibold">
               {selectedCategory
-                ? "Genres in category"
+                ? `Genres in category ${
+                    categoriesChartData.find((c) => c.id === selectedCategory)
+                      ?.name
+                  }`
                 : "Category Distribution"}
             </div>
             <div className="flex items-center gap-2">
@@ -170,14 +235,14 @@ export default function CategoryDashboard(): JSX.Element {
             </div>
           </div>
 
-          <div style={{ width: "140%", height: 500 }}>
+          <div className="w-full max-w-full" style={{ height: 370 }}>
             {chartData.length === 0 ? (
               <div className="p-6 text-slate-400">No data to display.</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={chartData}
-                  margin={{ top: 20, right: 20, left: 20, bottom: 80 }}
+                  margin={{ top: 20, right: 20, left: 20, bottom: 0 }}
                   onClick={(e: any) => {
                     const payload = e?.activePayload?.[0]?.payload;
                     if (!payload) return;
@@ -186,13 +251,13 @@ export default function CategoryDashboard(): JSX.Element {
                     }
                   }}
                 >
-                  <CartesianGrid vertical={false} strokeDasharray="100%" />
+                  <CartesianGrid vertical={false} strokeDasharray="109%" />
                   <XAxis
                     dataKey="name"
                     interval={0}
-                    angle={-35}
+                    angle={-10}
                     textAnchor="end"
-                    height={70}
+                    height={50}
                     tick={{ fill: "#cbd5e1", fontSize: 12 }}
                   />
                   <YAxis tick={{ fill: "#cbd5e1", fontSize: 12 }} />

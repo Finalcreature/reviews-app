@@ -60,7 +60,6 @@ const App: React.FC = () => {
   // pass this handler to GameSummaryModal
   const handlePreviewArchived = (
     review: Review,
-    refetchSummaries: () => void
   ) => {
     setArchivedReviewPreview(review);
     // Prefer a simple trigger that increments a token in App so the
@@ -463,13 +462,8 @@ const App: React.FC = () => {
                 aria-hidden="true"
               />
               <div className="relative w-full max-w-4xl bg-slate-900 rounded-xl p-8 text-slate-200 shadow-2xl border border-slate-800 overflow-auto max-h-[80vh]">
-                <div className="p-2 flex justify-end">
-                  <button
-                    onClick={() => setIsCategoryDashboardOpen(false)}
-                    className="px-3 py-1 rounded hover:bg-slate-800"
-                  >
-                    Close
-                  </button>
+                <div className="p-2 flex justify-start">
+                  <h2 className="text-xl font-semibold">Category Dashboard</h2>
                 </div>
                 <CategoryDashboard />
               </div>
