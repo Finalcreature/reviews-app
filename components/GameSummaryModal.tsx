@@ -24,6 +24,9 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
   const [visibilityFilter, setVisibilityFilter] = useState<
     "all" | "visible" | "hidden"
   >("all");
+  const [tagsFilter, setTagsFilter] = useState<
+    "all" | "with-tags" | "without-tags"
+  >("all");
 
   const refetchSummaries = async () => {
     setIsLoading(true);
@@ -31,7 +34,6 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
     try {
       const fetchedSummaries = await getGameSummaries(visibilityFilter);
       setSummaries(fetchedSummaries);
-      console.log("Refetching summaries");
     } catch (err) {
       console.error("Failed to fetch game summaries:", err);
       setError("Failed to load game summaries. Please try again later.");
@@ -84,8 +86,15 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
     }
   };
 
-  // (Tag updating helper is available via `updateArchivedReviewTags` in services/api)
-
+  // Helper function to safely parse tags
+  const parseTags = (tagsString?: string): string[] => {
+    if (!tagsString) return [];
+    try {
+      return JSON.parse(tagsString);
+    } catch {
+      return [];
+    }
+  };
   // Compute filtered and sorted summaries inside the component
   const filteredSummaries: GameSummary[] = summaries
     .filter((summary: GameSummary) => {
@@ -97,6 +106,14 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
       if (visibilityFilter === "hidden")
         return (summary as any).visible === false;
       return true;
+    })
+    .filter((summary: GameSummary) => {
+      const tags = parseTags(summary.tags);
+      const matchesTags =
+        tagsFilter === "all" ||
+        (tagsFilter === "with-tags" && tags.length > 0) ||
+        (tagsFilter === "without-tags" && tags.length === 0);
+      return matchesTags;
     })
     .sort((a: GameSummary, b: GameSummary) =>
       (a.game_name ?? "").localeCompare(b.game_name ?? "")
@@ -113,7 +130,7 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-5 border-b border-slate-700">
           <h2 className="text-xl font-semibold text-white">
-            Game Summaries: {summaries.length}
+            Game Summaries: {filteredSummaries.length}
           </h2>
           <input
             type="text"
@@ -144,7 +161,6 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
           </button>
         </div>
 
-        {/* 🧠 Toggle for filtering */}
         <div className="px-5 pt-3 pb-2 flex items-center justify-end gap-2">
           <label className="text-slate-300 text-sm">Show:</label>
           <select
@@ -159,6 +175,21 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
             <option value="all">All Reviews</option>
             <option value="visible">Visible Only</option>
             <option value="hidden">Hidden Only</option>
+          </select>
+
+          <label className="text-slate-300 text-sm ml-4">Tags:</label>
+          <select
+            value={tagsFilter}
+            onChange={(e) =>
+              setTagsFilter(
+                e.target.value as "all" | "with-tags" | "without-tags"
+              )
+            }
+            className="bg-slate-900 text-slate-200 border border-slate-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+          >
+            <option value="all">All</option>
+            <option value="with-tags">With Tags</option>
+            <option value="without-tags">Without Tags</option>
           </select>
         </div>
 
@@ -220,11 +251,14 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                         {summary.rating}/10
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                        {summary.tags && summary.tags.length > 0 ? (
-                          <span className="text-green-400">✓</span>
-                        ) : (
-                          <span className="text-slate-500">-</span>
-                        )}
+                        {(() => {
+                          const tags = parseTags(summary.tags);
+                          if (tags.length > 0) {
+                            return <span className="text-green-400">✔</span>;
+                          } else {
+                            return <span className="text-slate-500">-</span>;
+                          }
+                        })()}
                       </td>
                     </tr>
                   ))}

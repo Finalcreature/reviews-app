@@ -23,7 +23,7 @@ export interface GameSummary {
   rating: number;
   /** Optional genre from archived review JSON */
   genre?: string;
-  tags?: string[];
+  tags?: string;
 }
 
 export interface WipReview {
