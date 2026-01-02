@@ -7,6 +7,7 @@ import {
   YAxis,
   Tooltip,
   Cell,
+  CartesianGrid,
 } from "recharts";
 import { fetchCategories } from "../../services/api";
 import { CategoryStat, GenreStat } from "../../types";
@@ -67,7 +68,10 @@ export default function CategoryDashboard(): JSX.Element {
     }));
   }, [data, selectedCategory]);
 
-  const chartData = selectedCategory ? genresChartData : categoriesChartData;
+  const chartData = useMemo(() => {
+    const base = selectedCategory ? genresChartData : categoriesChartData;
+    return [...base].sort((a, b) => a.value - b.value);
+  }, [selectedCategory, genresChartData, categoriesChartData]);
 
   const colors = [
     "#f87171",
@@ -89,6 +93,26 @@ export default function CategoryDashboard(): JSX.Element {
       (best, d) => (d.review_count > (best?.review_count || 0) ? d : best),
       data[0] || null
     ) || null;
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-gray-800 border border-gray-700 p-3 rounded shadow-xl text-white">
+          <p className="font-bold text-sm mb-1">{label}</p>
+          <p className="text-blue-300 text-sm">
+            {selectedCategory ? "Reviews: " : "Total Reviews: "}
+            <span className="font-mono font-bold text-white">
+              {payload[0].value}
+            </span>
+          </p>
+          {!selectedCategory && (
+            <p className="text-xs text-gray-500 mt-1">Click to drill down</p>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="p-4">
@@ -146,14 +170,14 @@ export default function CategoryDashboard(): JSX.Element {
             </div>
           </div>
 
-          <div style={{ width: "100%", height: 320 }}>
+          <div style={{ width: "140%", height: 500 }}>
             {chartData.length === 0 ? (
               <div className="p-6 text-slate-400">No data to display.</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={chartData}
-                  margin={{ top: 20, right: 20, left: 12, bottom: 80 }}
+                  margin={{ top: 20, right: 20, left: 20, bottom: 80 }}
                   onClick={(e: any) => {
                     const payload = e?.activePayload?.[0]?.payload;
                     if (!payload) return;
@@ -162,6 +186,7 @@ export default function CategoryDashboard(): JSX.Element {
                     }
                   }}
                 >
+                  <CartesianGrid vertical={false} strokeDasharray="100%" />
                   <XAxis
                     dataKey="name"
                     interval={0}
@@ -171,15 +196,7 @@ export default function CategoryDashboard(): JSX.Element {
                     tick={{ fill: "#cbd5e1", fontSize: 12 }}
                   />
                   <YAxis tick={{ fill: "#cbd5e1", fontSize: 12 }} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "#0f172a",
-                      border: "none",
-                      color: "#e2e8f0",
-                    }}
-                    labelStyle={{ color: "#e2e8f0" }}
-                    formatter={(value: any) => [String(value), "Reviews"]}
-                  />
+                  <Tooltip cursor={false} content={<CustomTooltip />} />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                     {chartData.map((entry, index) => (
                       <Cell
@@ -196,54 +213,6 @@ export default function CategoryDashboard(): JSX.Element {
               </ResponsiveContainer>
             )}
           </div>
-        </div>
-
-        <div className="bg-slate-900 p-4 rounded">
-          <div className="font-semibold mb-2">Details</div>
-          {selectedCategory ? (
-            <div>
-              <div className="text-sm text-slate-400 mb-2">
-                Showing genres for selected category.
-              </div>
-              {(
-                data.find((d) => d.category_id === selectedCategory)?.genres ||
-                []
-              ).map((g) => (
-                <div
-                  key={g.genre_id}
-                  className="flex items-center justify-between py-2 border-b border-slate-800"
-                >
-                  <div>
-                    <div className="font-medium">{g.genre_name}</div>
-                    <div className="text-xs text-slate-400">
-                      avg {g.avg_rating ?? "—"} • {g.review_count} reviews
-                    </div>
-                  </div>
-                  <div className="text-sm text-slate-300">
-                    {g.sample_game_name ?? "—"}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div>
-              <div className="text-sm text-slate-400 mb-2">Top categories</div>
-              {data.slice(0, 5).map((c) => (
-                <div
-                  key={c.category_id}
-                  className="flex items-center justify-between py-2 border-b border-slate-800"
-                >
-                  <div>
-                    <div className="font-medium">{c.category_name}</div>
-                    <div className="text-xs text-slate-400">
-                      avg {c.avg_rating ?? "—"}
-                    </div>
-                  </div>
-                  <div className="text-sm text-slate-300">{c.review_count}</div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>
