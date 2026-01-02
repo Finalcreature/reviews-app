@@ -114,9 +114,6 @@ export const RatingDashboard: React.FC<RatingDashboardProps> = ({
         <div className="flex items-start justify-between mb-6">
           <div>
             <h3 className="text-2xl font-semibold">Rating Dashboard</h3>
-            <p className="text-sm text-slate-400">
-              Distribution of saved reviews by rating
-            </p>
           </div>
           <div className="flex items-center gap-3">
             <button

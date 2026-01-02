@@ -85,12 +85,14 @@ export default function CategoryDashboard(): JSX.Element {
   ];
 
   const treemapData = useMemo(() => {
-    return data.map((category, index) => ({
-      name: category.category_name,
-      size: category.review_count,
-      fill: colors[index % colors.length],
-      category_id: category.category_id,
-    }));
+    return [...data]
+      .sort((a, b) => a.review_count - b.review_count)
+      .map((category, index) => ({
+        name: category.category_name,
+        size: category.review_count,
+        fill: colors[index % colors.length],
+        category_id: category.category_id,
+      }));
   }, [data]);
 
   if (loading) return <div className="p-6">Loading categories...</div>;
@@ -142,7 +144,7 @@ export default function CategoryDashboard(): JSX.Element {
           <div className="font-semibold">Category Overview</div>
         </div>
 
-        <ResponsiveContainer width="105%" height={300}>
+        <ResponsiveContainer width="105%" height={500}>
           <Treemap
             data={treemapData}
             dataKey="size"
@@ -180,20 +182,25 @@ export default function CategoryDashboard(): JSX.Element {
                       fill="#fff"
                       stroke="#000"
                       strokeWidth={2}
-                      fontSize={12}
+                      fontSize={Math.max(12, (size / totalReviews) * 100)}
                       fontWeight="bold"
                       style={{ paintOrder: "stroke" }}
                     >
                       {name}
                     </text>
+
                     <text
                       x={x + width / 2}
-                      y={y + height / 2 + 8}
+                      y={
+                        (size / totalReviews) * 100 < 30
+                          ? y + height / 2 + 8
+                          : y + height / 2 + 30
+                      }
                       textAnchor="middle"
                       fill="#fff"
                       stroke="#000"
                       strokeWidth={2}
-                      fontSize={10}
+                      fontSize={Math.max(12, (size / totalReviews) * 100)}
                       style={{ paintOrder: "stroke" }}
                     >
                       {size}
