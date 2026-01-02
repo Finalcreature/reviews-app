@@ -44,3 +44,20 @@ export interface Genre {
   categoryId?: string | null;
   categoryName?: string | null;
 }
+
+export interface GenreStat {
+  genre_id: string;
+  genre_name: string;
+  review_count: number;
+  avg_rating: number | null;
+  sample_game_name?: string | null;
+}
+
+export interface CategoryStat {
+  category_id: string;
+  category_name: string;
+  review_count: number;
+  avg_rating: number | null;
+  sample_game_name?: string | null;
+  genres?: GenreStat[];
+}
