@@ -117,6 +117,7 @@ app.get("/api/games-summary", async (req, res) => {
         games.game_name, 
         (archived_reviews.review_json->>'rating')::numeric AS rating,
         (archived_reviews.review_json->>'genre') AS genre,
+        (archived_reviews.review_json->>'genre') AS tags,
         true AS visible
       FROM games
       JOIN reviews ON games.id = reviews.game_id
@@ -128,6 +129,7 @@ app.get("/api/games-summary", async (req, res) => {
         (review_json->>'game_name') AS game_name, 
         (review_json->>'rating')::numeric AS rating,
         (review_json->>'genre') AS genre,
+        (review_json->>'genre') AS tags,
         false AS visible
       FROM archived_reviews
       WHERE id NOT IN (SELECT id FROM reviews);
@@ -138,6 +140,7 @@ app.get("/api/games-summary", async (req, res) => {
         (ar.review_json->>'game_name') AS game_name, 
         (ar.review_json->>'rating')::numeric AS rating,
         (ar.review_json->>'genre') AS genre,
+        (ar.review_json->>'genre') AS tags,
         CASE WHEN r.id IS NOT NULL THEN true ELSE false END AS visible
       FROM archived_reviews ar
       LEFT JOIN reviews r ON ar.id = r.id;

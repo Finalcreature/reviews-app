@@ -190,6 +190,18 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                     >
                       Genre
                     </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider"
+                    >
+                      Rating
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider"
+                    >
+                      Has Tags
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-slate-800 divide-y divide-slate-700">
@@ -206,6 +218,13 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
                         {summary.rating}/10
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        {summary.tags && summary.tags.length > 0 ? (
+                          <span className="text-green-400">✓</span>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
                       </td>
                     </tr>
                   ))}
