@@ -85,12 +85,14 @@ export default function CategoryDashboard(): JSX.Element {
   ];
 
   const treemapData = useMemo(() => {
-    return data.map((category, index) => ({
-      name: category.category_name,
-      size: category.review_count,
-      fill: colors[index % colors.length],
-      category_id: category.category_id,
-    }));
+    return [...data]
+      .sort((a, b) => a.review_count - b.review_count)
+      .map((category, index) => ({
+        name: category.category_name,
+        size: category.review_count,
+        fill: colors[index % colors.length],
+        category_id: category.category_id,
+      }));
   }, [data]);
 
   if (loading) return <div className="p-6">Loading categories...</div>;
