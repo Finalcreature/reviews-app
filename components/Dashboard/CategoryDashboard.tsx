@@ -95,6 +95,17 @@ export default function CategoryDashboard(): JSX.Element {
       }));
   }, [data]);
 
+  const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result
+      ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16),
+        }
+      : null;
+  };
+
   if (loading) return <div className="p-6">Loading categories...</div>;
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
 
@@ -271,16 +282,40 @@ export default function CategoryDashboard(): JSX.Element {
                   <YAxis tick={{ fill: "#cbd5e1", fontSize: 12 }} />
                   <Tooltip cursor={false} content={<CustomTooltip />} />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                    {chartData.map((entry, index) => (
-                      <Cell
-                        cursor={!selectedCategory ? "pointer" : "default"}
-                        key={`cell-${entry.id}`}
-                        fill={colors[index % colors.length]}
-                        onClick={() => {
-                          if (!selectedCategory) setSelectedCategory(entry.id);
-                        }}
-                      />
-                    ))}
+                    {chartData.map((entry, index) => {
+                      let color = colors[index % colors.length];
+                      if (selectedCategory) {
+                        const parent = treemapData.find(
+                          (t) => t.category_id === selectedCategory
+                        );
+                        if (parent?.fill) {
+                          const rgb = hexToRgb(parent.fill);
+                          if (rgb) {
+                            const opacity =
+                              chartData.length > 1
+                                ? 0.3 + (0.7 * index) / (chartData.length - 1)
+                                : 1;
+                            color = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
+                          }
+                        }
+                      } else {
+                        const cat = treemapData.find(
+                          (t) => t.category_id === entry.id
+                        );
+                        if (cat?.fill) color = cat.fill;
+                      }
+                      return (
+                        <Cell
+                          cursor={!selectedCategory ? "pointer" : "default"}
+                          key={`cell-${entry.id}`}
+                          fill={color}
+                          onClick={() => {
+                            if (!selectedCategory)
+                              setSelectedCategory(entry.id);
+                          }}
+                        />
+                      );
+                    })}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
