@@ -150,65 +150,66 @@ export default function CategoryDashboard(): JSX.Element {
             dataKey="size"
             aspectRatio={4 / 3}
             stroke="#fff"
-            content={({ x, y, width, height, name, size, fill }: any) => (
-              <g>
-                <rect
-                  x={x}
-                  y={y}
-                  width={width}
-                  height={height}
-                  style={{
-                    fill,
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                    cursor: "pointer",
-                    opacity: 0.8,
-                    transition: "opacity 0.2s",
-                  }}
-                  onMouseEnter={(e: any) => (e.target.style.opacity = 1)}
-                  onMouseLeave={(e: any) => (e.target.style.opacity = 0.8)}
-                  onClick={() => {
-                    // Find category by name and drill down
-                    const category = data.find((c) => c.category_name === name);
-                    if (category) setSelectedCategory(category.category_id);
-                  }}
-                />
-                {width > 50 && height > 30 && (
-                  <>
-                    <text
-                      x={x + width / 2}
-                      y={y + height / 2 - 8}
-                      textAnchor="middle"
-                      fill="#fff"
-                      stroke="#000"
-                      strokeWidth={2}
-                      fontSize={Math.max(12, (size / totalReviews) * 100)}
-                      fontWeight="bold"
-                      style={{ paintOrder: "stroke" }}
-                    >
-                      {name}
-                    </text>
+            content={({ x, y, width, height, name, size, fill }: any) => {
+              const fontSize = Math.max(12, (size / totalReviews) * 100);
+              return (
+                <g>
+                  <rect
+                    x={x}
+                    y={y}
+                    width={width}
+                    height={height}
+                    style={{
+                      fill,
+                      stroke: "#fff",
+                      strokeWidth: 2,
+                      cursor: "pointer",
+                      opacity: 0.8,
+                      transition: "opacity 0.2s",
+                    }}
+                    onMouseEnter={(e: any) => (e.target.style.opacity = 1)}
+                    onMouseLeave={(e: any) => (e.target.style.opacity = 0.8)}
+                    onClick={() => {
+                      // Find category by name and drill down
+                      const category = data.find(
+                        (c) => c.category_name === name
+                      );
+                      if (category) setSelectedCategory(category.category_id);
+                    }}
+                  />
+                  {width > 50 && height > 30 && (
+                    <>
+                      <text
+                        x={x + width / 2}
+                        y={y + height / 2 - fontSize * 0.2}
+                        textAnchor="middle"
+                        fill="#fff"
+                        stroke="#000"
+                        strokeWidth={2}
+                        fontSize={fontSize}
+                        fontWeight="bold"
+                        style={{ paintOrder: "stroke" }}
+                      >
+                        {name}
+                      </text>
 
-                    <text
-                      x={x + width / 2}
-                      y={
-                        (size / totalReviews) * 100 < 30
-                          ? y + height / 2 + 8
-                          : y + height / 2 + 30
-                      }
-                      textAnchor="middle"
-                      fill="#fff"
-                      stroke="#000"
-                      strokeWidth={2}
-                      fontSize={Math.max(12, (size / totalReviews) * 100)}
-                      style={{ paintOrder: "stroke" }}
-                    >
-                      {size}
-                    </text>
-                  </>
-                )}
-              </g>
-            )}
+                      <text
+                        x={x + width / 2}
+                        y={y + height / 2 + fontSize * 0.9}
+                        textAnchor="middle"
+                        fill="#fff"
+                        stroke="#000"
+                        strokeWidth={2}
+                        fontSize={fontSize}
+                        style={{ paintOrder: "stroke" }}
+                      >
+                        {size}
+                      </text>
+                    </>
+                  )}
+                </g>
+              );
+            }}
           />
         </ResponsiveContainer>
       </div>
