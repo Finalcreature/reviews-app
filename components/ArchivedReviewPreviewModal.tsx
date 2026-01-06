@@ -221,9 +221,14 @@ export const ArchivedReviewPreviewModal: React.FC<
               )}
             </>
           ) : (
-            <p className="text-slate-300 text-sm mt-1">
-              {editableReview.game_name}
-            </p>
+            <>
+              <p className="text-slate-300 text-sm mt-1">
+                {editableReview.game_name}
+              </p>
+              <p className="text-slate-300 text-sm mt-1">
+                Genre: {editableReview.genre || "N/A"}
+              </p>
+            </>
           )}
         </div>
 
