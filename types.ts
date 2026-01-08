@@ -24,6 +24,10 @@ export interface GameSummary {
   /** Optional genre from archived review JSON */
   genre?: string;
   tags?: string;
+  /** Resolved category name when available */
+  category?: string | null;
+  /** Whether this summary corresponds to a visible (materialized) review */
+  visible?: boolean;
 }
 
 export interface WipReview {

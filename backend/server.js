@@ -118,10 +118,17 @@ app.get("/api/games-summary", async (req, res) => {
         (archived_reviews.review_json->>'rating')::numeric AS rating,
         (archived_reviews.review_json->>'genre') AS genre,
         (archived_reviews.review_json->>'tags') AS tags,
+        -- attempt to resolve category via normalized genre if present,
+        -- otherwise fall back to genre text stored in archived JSON
+        COALESCE(c.name, c2.name) AS category,
         true AS visible
       FROM games
       JOIN reviews ON games.id = reviews.game_id
-      JOIN archived_reviews ON reviews.id = archived_reviews.id;
+      JOIN archived_reviews ON reviews.id = archived_reviews.id
+      LEFT JOIN genres g ON g.id = reviews.genre_id
+      LEFT JOIN categories c ON c.id = g.category_id
+      LEFT JOIN genres g2 ON g2.name = archived_reviews.review_json->>'genre'
+      LEFT JOIN categories c2 ON c2.id = g2.category_id;
     `;
   } else if (visibility === "hidden") {
     query = `
@@ -130,8 +137,11 @@ app.get("/api/games-summary", async (req, res) => {
         (review_json->>'rating')::numeric AS rating,
         (review_json->>'genre') AS genre,
         (review_json->>'tags') AS tags,
+        COALESCE(c.name, NULL) AS category,
         false AS visible
       FROM archived_reviews
+      LEFT JOIN genres g ON g.name = review_json->>'genre'
+      LEFT JOIN categories c ON c.id = g.category_id
       WHERE id NOT IN (SELECT id FROM reviews);
     `;
   } else {
@@ -141,9 +151,14 @@ app.get("/api/games-summary", async (req, res) => {
         (ar.review_json->>'rating')::numeric AS rating,
         (ar.review_json->>'genre') AS genre,
         (ar.review_json->>'tags') AS tags,
+        COALESCE(c.name, c2.name) AS category,
         CASE WHEN r.id IS NOT NULL THEN true ELSE false END AS visible
       FROM archived_reviews ar
-      LEFT JOIN reviews r ON ar.id = r.id;
+      LEFT JOIN reviews r ON ar.id = r.id
+      LEFT JOIN genres g ON g.id = r.genre_id
+      LEFT JOIN categories c ON c.id = g.category_id
+      LEFT JOIN genres g2 ON g2.name = ar.review_json->>'genre'
+      LEFT JOIN categories c2 ON c2.id = g2.category_id;
     `;
   }
 

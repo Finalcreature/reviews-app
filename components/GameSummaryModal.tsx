@@ -231,6 +231,12 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider"
                     >
+                      Category
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider"
+                    >
                       Has Tags
                     </th>
                   </tr>
@@ -249,6 +255,9 @@ export const GameSummaryModal: React.FC<GameSummaryModalProps> = ({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
                         {summary.rating}/10
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        {summary.category || "—"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
                         {(() => {
