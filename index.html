@@ -1,26 +1,25 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale-1.0" />
     <title>JSON Game Review Formatter</title>
+
+    <!-- Keep Tailwind CDN since you seem to be using it for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="importmap">
-      {
-        "imports": {
-          "react": "https://esm.sh/react@^19.1.0",
-          "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
-          "react/": "https://esm.sh/react@^19.1.0/"
-        }
-      }
-    </script>
-    <!-- Add Babel Standalone for in-browser transpilation of JSX/TSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   </head>
   <body class="bg-slate-900">
     <div id="root"></div>
-    <!-- Change script type to "text/babel" to let Babel transpile it -->
-    <script type="text/babel" data-type="module" src="/index.tsx"></script>
+
+    <!-- 
+      FIX: 
+      1. Type must be "module" (not "text/babel")
+      2. No "data-type" attribute needed
+      3. Point to your file. 
+      (Note: In standard Vite, this is usually "/src/main.tsx" or "/src/index.tsx".
+       If your file is actually in the root folder, keep it as "/index.tsx")
+    -->
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
