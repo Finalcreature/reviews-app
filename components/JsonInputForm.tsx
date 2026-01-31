@@ -38,11 +38,13 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
     const rawLines = text.split(/\r?\n/);
     const trimmed = rawLines.map((l) => l.trim());
 
-    // Extract first up to four non-empty header lines (gameName, rating, title, optional genre)
+    // Collect the first three non-empty header lines (gameName, rating, title).
+    // This allows blank lines between those header lines but prevents the first
+    // paragraph of the body from being swallowed as a fourth header line.
     const headerLines: string[] = [];
     let headerEndIndex = -1;
-    for (let i = 0; i < trimmed.length && headerLines.length < 4; i++) {
-      if (trimmed[i].length === 0) continue; // skip empty lines only for headers
+    for (let i = 0; i < trimmed.length && headerLines.length < 3; i++) {
+      if (trimmed[i].length === 0) continue;
       headerLines.push(trimmed[i]);
       headerEndIndex = i;
     }
@@ -55,7 +57,7 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
     const gameName = headerLines[0];
     const ratingRaw = headerLines[1];
     const title = headerLines[2];
-    const genre = ""; //todo support optional genre line (e.g headerLines[3] || undefined)
+    const genre = ""; // todo: support optional genre line if needed
 
     const rating = parseInt(ratingRaw, 10);
     if (Number.isNaN(rating) || rating < 1 || rating > 10) {
@@ -64,7 +66,7 @@ export const JsonInputForm: React.FC<JsonInputFormProps> = ({
       );
     }
 
-    // Now process the remainder starting after the headerEndIndex
+    // Now process the remainder starting after the third header line
     const remainderLines = rawLines
       .slice(headerEndIndex + 1)
       .map((l) => l.trim());
