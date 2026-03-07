@@ -22,21 +22,21 @@ pool.connect((err, client, release) => {
   // Sanity check: does `reviews.genre` column exist? (non-invasive)
   pool
     .query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name='reviews' AND column_name='genre'"
+      "SELECT column_name FROM information_schema.columns WHERE table_name='reviews' AND column_name='genre'",
     )
     .then((r) => {
       if (r.rows.length > 0) {
         console.log("DB Check: 'reviews.genre' column detected.");
       } else {
         console.log(
-          "DB Check: 'reviews.genre' column not found (expected on older schemas)."
+          "DB Check: 'reviews.genre' column not found (expected on older schemas).",
         );
       }
     })
     .catch((e) => {
       console.warn(
         "DB Check: could not determine if 'genre' column exists:",
-        e.message
+        e.message,
       );
     });
 });
@@ -57,7 +57,7 @@ app.get("/api/reviews", async (req, res) => {
       LEFT JOIN games ON reviews.game_id = games.id
       LEFT JOIN genres g ON reviews.genre_id = g.id
       LEFT JOIN categories c ON g.category_id = c.id
-      ORDER BY reviews.created_at DESC`
+      ORDER BY reviews.created_at DESC`,
     );
 
     // Keep returning the same shape frontend expects; include genre/category fields
@@ -96,7 +96,7 @@ FROM archived_reviews
 WHERE review_json ? 'rating'
   AND review_json->>'rating' IS NOT NULL
 GROUP BY (review_json->>'rating')::numeric::int
-ORDER BY rating DESC;`
+ORDER BY rating DESC;`,
     );
 
     // Ensure we always return an array of groups
@@ -194,7 +194,7 @@ app.get("/api/genres", async (req, res) => {
 app.get("/api/categories", async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, name FROM categories ORDER BY lower(name)`
+      `SELECT id, name FROM categories ORDER BY lower(name)`,
     );
     res.json(result.rows);
   } catch (err) {
@@ -213,7 +213,7 @@ app.post("/api/categories", async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO categories (name) VALUES ($1) ON CONFLICT (lower(name)) DO UPDATE SET name = EXCLUDED.name RETURNING id, name`,
-      [name]
+      [name],
     );
 
     res.status(201).json(result.rows[0]);
@@ -239,14 +239,14 @@ app.post("/api/genres", async (req, res) => {
       if (!finalCategoryId && categoryName) {
         const r = await client.query(
           `INSERT INTO categories (name) VALUES($1) ON CONFLICT (lower(name)) DO UPDATE SET name = EXCLUDED.name RETURNING id, name`,
-          [categoryName]
+          [categoryName],
         );
         finalCategoryId = r.rows[0].id;
       }
 
       const r2 = await client.query(
         `INSERT INTO genres (name, category_id) VALUES ($1, $2) ON CONFLICT (lower(name)) DO UPDATE SET category_id = COALESCE(EXCLUDED.category_id, genres.category_id) RETURNING id, name, category_id`,
-        [name, finalCategoryId]
+        [name, finalCategoryId],
       );
 
       await client.query("COMMIT");
@@ -255,7 +255,7 @@ app.post("/api/genres", async (req, res) => {
       if (created.category_id) {
         const c = await pool.query(
           `SELECT id, name FROM categories WHERE id = $1`,
-          [created.category_id]
+          [created.category_id],
         );
         created.categoryName = c.rows[0].name;
       }
@@ -286,7 +286,7 @@ app.patch("/api/reviews/:id/genre", async (req, res) => {
     if (!finalCategoryId && categoryName) {
       const r = await client.query(
         `INSERT INTO categories (name) VALUES($1) ON CONFLICT (lower(name)) DO UPDATE SET name = EXCLUDED.name RETURNING id, name`,
-        [categoryName]
+        [categoryName],
       );
       finalCategoryId = r.rows[0].id;
     }
@@ -296,7 +296,7 @@ app.patch("/api/reviews/:id/genre", async (req, res) => {
     if (!finalGenreId && genreName) {
       const r2 = await client.query(
         `INSERT INTO genres (name, category_id) VALUES ($1, $2) ON CONFLICT (lower(name)) DO UPDATE SET category_id = COALESCE(EXCLUDED.category_id, genres.category_id) RETURNING id`,
-        [genreName, finalCategoryId]
+        [genreName, finalCategoryId],
       );
       finalGenreId = r2.rows[0].id;
     }
@@ -307,21 +307,21 @@ app.patch("/api/reviews/:id/genre", async (req, res) => {
 
     const upd = await client.query(
       `UPDATE reviews SET genre_id = $1 WHERE id = $2 RETURNING *`,
-      [finalGenreId, id]
+      [finalGenreId, id],
     );
 
     if (upd.rows.length === 0) {
       // Check if it exists in archived_reviews (archived-only)
       const archRes = await client.query(
         "SELECT id FROM archived_reviews WHERE id = $1",
-        [id]
+        [id],
       );
 
       if (archRes.rowCount > 0) {
         // Update archived_reviews JSON directly without materializing
         const gRes = await client.query(
           `SELECT g.name, g.category_id, c.name as category_name FROM genres g LEFT JOIN categories c ON g.category_id = c.id WHERE g.id = $1`,
-          [finalGenreId]
+          [finalGenreId],
         );
         const {
           name: gName,
@@ -334,7 +334,7 @@ app.patch("/api/reviews/:id/genre", async (req, res) => {
 
         await client.query(
           "UPDATE archived_reviews SET review_json = COALESCE(review_json, '{}'::jsonb) || $1::jsonb WHERE id = $2",
-          [patch, id]
+          [patch, id],
         );
 
         await client.query("COMMIT");
@@ -358,7 +358,7 @@ app.patch("/api/reviews/:id/genre", async (req, res) => {
     // Return the updated review plus resolved genre/category
     const g = await pool.query(
       `SELECT g.id, g.name, g.category_id, c.name AS category_name FROM genres g LEFT JOIN categories c ON c.id = g.category_id WHERE g.id = $1`,
-      [finalGenreId]
+      [finalGenreId],
     );
 
     res.json({ review: upd.rows[0], genre: g.rows[0] });
@@ -408,7 +408,7 @@ app.post("/api/reviews", async (req, res) => {
       // 1. Try to find existing game
       const gameResult = await client.query(
         `SELECT * FROM games WHERE game_name = $1`,
-        [game_name]
+        [game_name],
       );
 
       let gameId;
@@ -419,7 +419,7 @@ app.post("/api/reviews", async (req, res) => {
         gameId = uuidv4();
         await client.query(
           `INSERT INTO games (id, game_name) VALUES ($1, $2)`,
-          [gameId, game_name]
+          [gameId, game_name],
         );
       }
 
@@ -439,13 +439,13 @@ app.post("/api/reviews", async (req, res) => {
           negative_points || [],
           tags || [],
           genre || null,
-        ]
+        ],
       );
 
       await client.query(
         `INSERT INTO archived_reviews (id, review_json, created_at)
          VALUES ($1, $2, NOW())`,
-        [reviewId, originalReviewJson]
+        [reviewId, originalReviewJson],
       );
 
       await client.query("COMMIT");
@@ -455,7 +455,7 @@ app.post("/api/reviews", async (req, res) => {
       console.log(
         `Created review ${reviewId} (game: ${game_name}, genre: ${
           genre || "n/a"
-        })`
+        })`,
       );
       res.status(201).json({
         ...review,
@@ -501,7 +501,7 @@ app.patch("/api/reviews/:id/tags", async (req, res) => {
     }
     const result = await pool.query(
       "UPDATE reviews SET tags = $1 WHERE id = $2 RETURNING *;",
-      [tags, id]
+      [tags, id],
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Review not found" });
@@ -528,7 +528,7 @@ app.patch("/api/archived-reviews/:id/tags", async (req, res) => {
       `UPDATE archived_reviews
        SET review_json = jsonb_set(review_json, '{tags}', to_jsonb($1::text[]))
        WHERE id = $2`,
-      [tags, id]
+      [tags, id],
     );
 
     if (result.rowCount === 0) {
@@ -580,7 +580,7 @@ app.get("/api/archived-reviews/game/:gameName", async (req, res) => {
        FROM archived_reviews
        WHERE review_json->>'game_name' = $1
        LIMIT 1`, // Adjust as needed
-      [gameName]
+      [gameName],
     );
 
     if (result.rows.length === 0) {
@@ -685,6 +685,28 @@ app.get("/api/reviews/by-category", async (req, res) => {
   }
 });
 
+// GET /api/reviews/by-genre/:genreName/games - return distinct game names for a genre
+app.get("/api/reviews/by-genre/:genreName/games", async (req, res) => {
+  const { genreName } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT game_name FROM (  
+     SELECT DISTINCT (review_json->>'game_name') AS game_name  
+     FROM archived_reviews  
+     WHERE review_json->>'genre' = $1  
+       AND review_json->>'game_name' IS NOT NULL  
+   ) sub  
+   ORDER BY lower(game_name) ASC`,
+      [genreName],
+    );
+    console.log(`Fetched ${result.rows.length} games for genre '${genreName}'`);
+    res.json(result.rows.map((r) => r.game_name));
+  } catch (err) {
+    console.error("Error fetching games by genre:", err);
+    res.status(500).json({ error: "Failed to fetch games by genre" });
+  }
+});
+
 // server.js (or your Express routes)
 app.put("/api/archived-reviews/:id", async (req, res) => {
   const { id } = req.params;
@@ -697,13 +719,13 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
     // Merge incoming JSON into existing archived JSON (preserve fields not provided by client)
     await client.query(
       "UPDATE archived_reviews SET review_json = COALESCE(review_json, '{}'::jsonb) || $1::jsonb WHERE id = $2",
-      [updatedReview, id]
+      [updatedReview, id],
     );
 
     // Read back the merged archived JSON so we operate on the persisted state
     const mergedRes = await client.query(
       "SELECT review_json FROM archived_reviews WHERE id = $1",
-      [id]
+      [id],
     );
     if (mergedRes.rowCount === 0) {
       await client.query("ROLLBACK");
@@ -714,7 +736,7 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
     // If a corresponding row exists in `reviews`, update the normalized fields.
     const reviewRes = await client.query(
       "SELECT * FROM reviews WHERE id = $1",
-      [id]
+      [id],
     );
     if (reviewRes.rowCount > 0) {
       // Use fields from the merged archived JSON so changes persisted to archived_reviews
@@ -741,7 +763,7 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
         // Check for an existing game with this exact name first
         const existingGame = await client.query(
           "SELECT id FROM games WHERE game_name = $1 LIMIT 1",
-          [game_name]
+          [game_name],
         );
         if (existingGame.rowCount > 0) {
           gameId = existingGame.rows[0].id;
@@ -752,14 +774,14 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
           if (oldGameId) {
             const refs = await client.query(
               "SELECT COUNT(*)::int AS cnt FROM reviews WHERE game_id = $1",
-              [oldGameId]
+              [oldGameId],
             );
             const refCount = parseInt(refs.rows[0].cnt, 10) || 0;
             if (refCount === 1) {
               // Safe to rename the existing game row in-place
               await client.query(
                 "UPDATE games SET game_name = $1 WHERE id = $2",
-                [game_name, oldGameId]
+                [game_name, oldGameId],
               );
               gameId = oldGameId;
             } else {
@@ -767,7 +789,7 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
               gameId = uuidv4();
               await client.query(
                 "INSERT INTO games (id, game_name) VALUES ($1, $2)",
-                [gameId, game_name]
+                [gameId, game_name],
               );
             }
           } else {
@@ -775,7 +797,7 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
             gameId = uuidv4();
             await client.query(
               "INSERT INTO games (id, game_name) VALUES ($1, $2)",
-              [gameId, game_name]
+              [gameId, game_name],
             );
           }
         }
@@ -805,7 +827,7 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
             gameId,
             genre || null,
             id,
-          ]
+          ],
         );
       } else {
         await client.query(
@@ -827,14 +849,14 @@ app.put("/api/archived-reviews/:id", async (req, res) => {
             tags || [],
             genre || null,
             id,
-          ]
+          ],
         );
       }
     }
 
     await client.query("COMMIT");
     console.log(
-      `Updated archived review ${id} (genre: ${mergedJson.genre || "n/a"})`
+      `Updated archived review ${id} (genre: ${mergedJson.genre || "n/a"})`,
     );
     res.json({ success: true });
   } catch (err) {
@@ -856,7 +878,7 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
 
     const ar = await client.query(
       "SELECT review_json FROM archived_reviews WHERE id = $1",
-      [archivedId]
+      [archivedId],
     );
     if (ar.rowCount === 0) {
       await client.query("ROLLBACK");
@@ -870,13 +892,13 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
     if (gameName) {
       const g = await client.query(
         "SELECT id FROM games WHERE game_name = $1 LIMIT 1",
-        [gameName]
+        [gameName],
       );
       if (g.rowCount > 0) gameId = g.rows[0].id;
       else {
         const created = await client.query(
           "INSERT INTO games (id, game_name) VALUES ($1, $2) RETURNING id",
-          [uuidv4(), gameName]
+          [uuidv4(), gameName],
         );
         gameId = created.rows[0].id;
       }
@@ -887,7 +909,7 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
     if (!finalCategoryId && categoryName) {
       const c = await client.query(
         `INSERT INTO categories (name) VALUES ($1) ON CONFLICT (lower(name)) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
-        [categoryName]
+        [categoryName],
       );
       finalCategoryId = c.rows[0].id;
     }
@@ -897,7 +919,7 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
     if (!finalGenreId && genreName) {
       const g = await client.query(
         `INSERT INTO genres (name, category_id) VALUES ($1, $2) ON CONFLICT (lower(name)) DO UPDATE SET category_id = COALESCE(EXCLUDED.category_id, genres.category_id) RETURNING id`,
-        [genreName, finalCategoryId]
+        [genreName, finalCategoryId],
       );
       finalGenreId = g.rows[0].id;
     }
@@ -914,7 +936,7 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
     if (gameId) {
       const r = await client.query(
         "SELECT id FROM reviews WHERE game_id = $1 LIMIT 1",
-        [gameId]
+        [gameId],
       );
       if (r.rowCount > 0) existing = r.rows[0];
     }
@@ -932,37 +954,37 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
           finalGenreId,
           gameId,
           existing.id,
-        ]
+        ],
       );
       const updated = await client.query(
         "SELECT * FROM reviews WHERE id = $1",
-        [existing.id]
+        [existing.id],
       );
       // Persist key metadata back into the archived review JSON to avoid losing game_name/genre/category
       try {
         if (gameName) {
           await client.query(
             "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{game_name}', to_jsonb($1::text), true) WHERE id = $2",
-            [gameName, archivedId]
+            [gameName, archivedId],
           );
         }
         if (finalGenreId) {
           const gm = await client.query(
             "SELECT g.name AS genre_name, c.name AS category_name FROM genres g LEFT JOIN categories c ON c.id = g.category_id WHERE g.id = $1",
-            [finalGenreId]
+            [finalGenreId],
           );
           const genreNameToSet = gm.rows[0]?.genre_name || null;
           const categoryNameToSet = gm.rows[0]?.category_name || null;
           if (genreNameToSet) {
             await client.query(
               "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{genre}', to_jsonb($1::text), true) WHERE id = $2",
-              [genreNameToSet, archivedId]
+              [genreNameToSet, archivedId],
             );
           }
           if (categoryNameToSet) {
             await client.query(
               "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{categoryName}', to_jsonb($1::text), true) WHERE id = $2",
-              [categoryNameToSet, archivedId]
+              [categoryNameToSet, archivedId],
             );
           }
         }
@@ -974,7 +996,7 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
       if (finalGenreId) {
         const g = await client.query(
           "SELECT g.id, g.name, g.category_id, c.name AS category_name FROM genres g LEFT JOIN categories c ON c.id = g.category_id WHERE g.id = $1",
-          [finalGenreId]
+          [finalGenreId],
         );
         genreMeta = g.rows[0];
       }
@@ -1000,33 +1022,33 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
         negative_points,
         tags,
         finalGenreId,
-      ]
+      ],
     );
     // Persist metadata back into archived review JSON
     try {
       if (gameName) {
         await client.query(
           "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{game_name}', to_jsonb($1::text), true) WHERE id = $2",
-          [gameName, archivedId]
+          [gameName, archivedId],
         );
       }
       if (finalGenreId) {
         const gm = await client.query(
           "SELECT g.name AS genre_name, c.name AS category_name FROM genres g LEFT JOIN categories c ON c.id = g.category_id WHERE g.id = $1",
-          [finalGenreId]
+          [finalGenreId],
         );
         const genreNameToSet = gm.rows[0]?.genre_name || null;
         const categoryNameToSet = gm.rows[0]?.category_name || null;
         if (genreNameToSet) {
           await client.query(
             "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{genre}', to_jsonb($1::text), true) WHERE id = $2",
-            [genreNameToSet, archivedId]
+            [genreNameToSet, archivedId],
           );
         }
         if (categoryNameToSet) {
           await client.query(
             "UPDATE archived_reviews SET review_json = jsonb_set(review_json, '{categoryName}', to_jsonb($1::text), true) WHERE id = $2",
-            [categoryNameToSet, archivedId]
+            [categoryNameToSet, archivedId],
           );
         }
       }
@@ -1038,7 +1060,7 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
     if (finalGenreId) {
       const g = await client.query(
         "SELECT g.id, g.name, g.category_id, c.name AS category_name FROM genres g LEFT JOIN categories c ON c.id = g.category_id WHERE g.id = $1",
-        [finalGenreId]
+        [finalGenreId],
       );
       genreMeta = g.rows[0];
     }
@@ -1070,7 +1092,7 @@ app.post("/api/archived-reviews/:id/materialize", async (req, res) => {
 app.get("/api/wip-reviews", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, game_name, remarks, created_at, updated_at FROM wip_reviews ORDER BY created_at DESC"
+      "SELECT id, game_name, remarks, created_at, updated_at FROM wip_reviews ORDER BY created_at DESC",
     );
     const rows = result.rows.map((r) => ({
       id: r.id,
@@ -1094,7 +1116,7 @@ app.post("/api/wip-reviews", async (req, res) => {
     const now = new Date();
     await pool.query(
       "INSERT INTO wip_reviews (id, game_name, remarks, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
-      [id, gameName, remarks || "", now, now]
+      [id, gameName, remarks || "", now, now],
     );
     res.status(201).json({
       id,
@@ -1116,7 +1138,7 @@ app.put("/api/wip-reviews/:id", async (req, res) => {
     const now = new Date();
     const result = await pool.query(
       "UPDATE wip_reviews SET game_name = $1, remarks = $2, updated_at = $3 WHERE id = $4 RETURNING id, game_name, remarks, created_at, updated_at",
-      [gameName, remarks || "", now, id]
+      [gameName, remarks || "", now, id],
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: "WIP review not found" });

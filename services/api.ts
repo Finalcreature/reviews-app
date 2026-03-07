@@ -31,7 +31,7 @@ const API_BASE_URL = "http://localhost:3001"; // URL of your backend server
 
 export const updateReviewTags = async (
   id: string,
-  tags: string[]
+  tags: string[],
 ): Promise<Review> => {
   const response = await fetch(`${API_BASE_URL}/api/reviews/${id}/tags`, {
     method: "PATCH",
@@ -64,7 +64,7 @@ export const getReviews = async (): Promise<Review[]> => {
  * @returns A promise that resolves to the newly created review returned by the server.
  */
 export const createReview = async (
-  reviewData: NewReviewData
+  reviewData: NewReviewData,
 ): Promise<Review> => {
   const response = await fetch(`${API_BASE_URL}/api/reviews`, {
     method: "POST",
@@ -104,7 +104,7 @@ export const updateReviewGenre = async (
     genreName?: string;
     categoryId?: string;
     categoryName?: string;
-  }
+  },
 ): Promise<{ review: Review; genre: Genre }> => {
   const response = await fetch(`${API_BASE_URL}/api/reviews/${id}/genre`, {
     method: "PATCH",
@@ -131,7 +131,7 @@ export const updateReviewGenre = async (
  * @returns A promise that resolves to an object indicating success.
  */
 export const deleteReviewById = async (
-  id: string
+  id: string,
 ): Promise<{ success: boolean }> => {
   const response = await fetch(`${API_BASE_URL}/api/reviews/${id}`, {
     method: "DELETE",
@@ -156,10 +156,10 @@ export const getRawReviews = async (): Promise<any[]> => {
  * @returns A promise that resolves to an array of game summaries.
  */
 export const getGameSummaries = async (
-  visibility: "all" | "visible" | "hidden" = "all"
+  visibility: "all" | "visible" | "hidden" = "all",
 ): Promise<GameSummary[]> => {
   const response = await fetch(
-    `${API_BASE_URL}/api/games-summary?visibility=${visibility}`
+    `${API_BASE_URL}/api/games-summary?visibility=${visibility}`,
   );
   if (!response.ok) {
     throw new Error("Failed to fetch game summaries from server");
@@ -199,6 +199,21 @@ export const fetchCategories = async (): Promise<CategoryStat[]> => {
   return res.json();
 };
 
+/**
+ * Fetch distinct game names for a given genre (alphabetical)
+ */
+export const fetchGamesByGenre = async (
+  genreName: string,
+): Promise<string[]> => {
+  const res = await fetch(
+    `${API_BASE_URL}/api/reviews/by-genre/${encodeURIComponent(
+      genreName,
+    )}/games`,
+  );
+  if (!res.ok) throw new Error("Failed to fetch games for genre");
+  return res.json();
+};
+
 export const createCategory = async (name: string): Promise<Category> => {
   const res = await fetch(`${API_BASE_URL}/api/categories`, {
     method: "POST",
@@ -232,7 +247,7 @@ export async function materializeArchivedReview(
     genreName?: string;
     categoryId?: string;
     categoryName?: string;
-  }
+  },
 ) {
   const res = await fetch(
     `${API_BASE_URL}/api/archived-reviews/${archivedId}/materialize`,
@@ -240,7 +255,7 @@ export async function materializeArchivedReview(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(opts || {}),
-    }
+    },
   );
   if (!res.ok) {
     const txt = await res.text();
@@ -260,7 +275,7 @@ export const getReviewsByRating = async (): Promise<RatingGroup[]> => {
 
 export async function updateArchivedReviewTags(
   id: string,
-  tags: string[]
+  tags: string[],
 ): Promise<void> {
   const response = await fetch(
     `${API_BASE_URL}/api/archived-reviews/${id}/tags`,
@@ -270,7 +285,7 @@ export async function updateArchivedReviewTags(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ tags }),
-    }
+    },
   );
 
   if (!response.ok) {
@@ -280,10 +295,10 @@ export async function updateArchivedReviewTags(
 }
 
 export async function fetchArchivedReviewForGame(
-  gameName: string
+  gameName: string,
 ): Promise<Review | null> {
   const response = await fetch(
-    `${API_BASE_URL}/api/archived-reviews/game/${encodeURIComponent(gameName)}`
+    `${API_BASE_URL}/api/archived-reviews/game/${encodeURIComponent(gameName)}`,
   );
 
   if (response.status === 404) {
